@@ -330,6 +330,11 @@ async function runAgent(canvasId: string, agentName: string, stalled: Set<string
   const canvasOwner = store.getCanvas(canvasId)?.ownerId
   const model = await pickModel(payer || canvasOwner)
   if (!model) {
+    const reason =
+      'The Bopixi Agent needs an AI model account — connect an API key in Settings → Bopixi Agent, or connect your own CLI agent (Claude, agy) using the + button.'
+    for (const f of actions.takeFeedbackFor(canvasId, role.name, payer)) actions.failTaskFeedback(f.id, reason)
+    for (const c of actions.takeAgentCommentsFor(canvasId, role.name, payer)) actions.failComment(c.id, reason)
+    for (const c of actions.takeQueuedCardsFor(canvasId, role.name, payer)) actions.failCard(canvasId, c.id, reason)
     stalled.add(payer)
     return 'no-model'
   }

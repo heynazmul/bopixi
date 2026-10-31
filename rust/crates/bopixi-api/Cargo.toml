@@ -17,3 +17,8 @@ tracing.workspace = true
 bopixi-auth = { path = "../bopixi-auth" }
 bopixi-core = { path = "../bopixi-core" }
 bopixi-db = { path = "../bopixi-db" }
+
+[dev-dependencies]
+http.workspace = true
+sqlx.workspace = true
+tower.workspace = true

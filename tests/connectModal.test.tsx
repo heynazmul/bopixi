@@ -36,11 +36,11 @@ const pickCard = (name: string) =>
   })
 const text = () => document.body.textContent ?? ''
 
-const mount = async (canvasId?: string) => {
+const mount = async (canvasId?: string, initialAdd?: boolean) => {
   container = document.createElement('div')
   document.body.append(container)
   root = createRoot(container)
-  await act(async () => root.render(<ConnectModal canvasId={canvasId} onClose={onClose} />))
+  await act(async () => root.render(<ConnectModal canvasId={canvasId} initialAdd={initialAdd} onClose={onClose} />))
 }
 
 beforeEach(() => {
@@ -242,4 +242,36 @@ it('adds a named CLI agent with its run command and removes it again', async () 
   expect(text()).toContain('Choose your agent')
   expect(text()).not.toContain('Acme CLI')
   expect(localStorage.getItem('bopixi:customAgents')).toBe('[]')
+})
+
+it('opens directly to AddAgentForm when initialAdd is true', async () => {
+  await mount('c1', true)
+  expect(text()).toContain('Add a CLI agent')
+  expect(document.querySelector('#custom-agent-name')).not.toBeNull()
+  expect(document.querySelector('#custom-agent-command')).not.toBeNull()
+})
+
+it('adds agy with command agy and provides Antigravity MCP config and run command', async () => {
+  await mount('c1', true)
+  await click('Antigravity (agy)')
+  expect((document.querySelector('#custom-agent-name') as HTMLInputElement).value).toBe('Antigravity')
+  expect((document.querySelector('#custom-agent-command') as HTMLInputElement).value).toBe('agy')
+
+  await click('Add agent')
+  expect(text()).toContain('Connect Antigravity')
+  expect(text()).toContain('mcp_config.json')
+  expect(text()).toContain('Start Antigravity')
+  expect(text()).toContain('agy')
+})
+
+it('adds claude with command claude and provides claude mcp add command', async () => {
+  await mount('c1', true)
+  await click('Claude')
+  expect((document.querySelector('#custom-agent-name') as HTMLInputElement).value).toBe('Claude')
+  expect((document.querySelector('#custom-agent-command') as HTMLInputElement).value).toBe('claude')
+
+  await click('Add agent')
+  expect(text()).toContain('Connect Claude')
+  expect(text()).toContain(`claude mcp add --transport http bopixi "${location.origin}/mcp"`)
+  expect(text()).toContain('Start Claude')
 })

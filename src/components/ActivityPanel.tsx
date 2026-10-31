@@ -18,7 +18,7 @@ import {
   PanelTabsRoot,
 } from './ui/panel'
 import { Button } from './ui/button'
-import { BookOpenIcon, CheckIcon, ChevronDownIcon, CommentIcon, PulseIcon, SparkIcon } from './ui/icons'
+import { BookOpenIcon, CheckIcon, ChevronDownIcon, CommentIcon, PlusIcon, PulseIcon, SparkIcon } from './ui/icons'
 import { DotMatrix } from './ui/dot-matrix'
 import { Dot } from './ui/dot'
 import { isResidentLimit } from './TeamAllowance'
@@ -52,6 +52,8 @@ function duration(t: AgentTask): string {
 export function ActivityPanel({
   canvasId,
   onClose,
+  onConnect,
+  onAddAgent,
   surface = 'floating',
   className,
   style,
@@ -59,6 +61,8 @@ export function ActivityPanel({
 }: {
   canvasId: string
   onClose: () => void
+  onConnect?: () => void
+  onAddAgent?: () => void
   /* 'inline' when the panel is filling a mobile Sheet rather than floating */
   surface?: 'floating' | 'inline'
   className?: string
@@ -128,7 +132,7 @@ export function ActivityPanel({
             the prompt composer is docked underneath */}
         <PanelTabPanel value="tasks" className={tabEnter}>
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-            <RecentTasks />
+            <RecentTasks onConnect={onConnect} onAddAgent={onAddAgent} />
           </div>
           {/* the composer briefs agents to change frames: editors only */}
           {canEdit && <PromptBar canvasId={canvasId} />}
@@ -153,7 +157,7 @@ const RECENT_SHOWN = 3
 /* The "Recent tasks" strip at the top of the Agents tab: what each agent is
    working on or just finished, and for whom. "Show all" opens the whole
    history in the same rows, split into what is running and what is done. */
-function RecentTasks() {
+function RecentTasks({ onConnect, onAddAgent }: { onConnect?: () => void; onAddAgent?: () => void }) {
   const tasks = useStore((s) => s.tasks)
   const [all, setAll] = useState(false)
   /* unclaimed board cards have no agent yet, so they are not activity */
@@ -161,13 +165,42 @@ function RecentTasks() {
   const working = useMemo(() => claimed.filter((t) => !t.endedAt && !t.failedAt), [claimed])
   const finished = useMemo(() => claimed.filter((t) => t.endedAt || t.failedAt), [claimed])
 
+  const handleAdd = onAddAgent || onConnect
+
   return (
     <section aria-label="Recent tasks" className="flex flex-none flex-col pt-1.5 pb-1">
-      <h3 className="flex h-7 flex-none items-center px-3 text-[11.5px] font-normal text-ink-faint">Recent tasks</h3>
+      <div className="flex h-7 flex-none items-center justify-between px-3">
+        <h3 className="text-[11.5px] font-normal text-ink-faint">Recent tasks</h3>
+        {handleAdd && (
+          <button
+            type="button"
+            className="flex items-center gap-1 text-[11px] text-ink-faint transition-colors hover:text-ink"
+            onClick={handleAdd}
+            title="Add a CLI agent (e.g. claude, agy)"
+          >
+            <PlusIcon width={12} height={12} />
+            <span>Add agent</span>
+          </button>
+        )}
+      </div>
       {claimed.length === 0 ? (
-        <p className="px-3 pb-2 text-[12px] leading-[1.45] text-ink-faint">
-          No tasks yet. Ask the Bopixi Agent below, or connect your own — what agents work on shows up here.
-        </p>
+        <div className="px-3 pb-2 text-[12px] leading-[1.45] text-ink-faint">
+          <p>
+            No tasks yet. Ask the Bopixi Agent below, or connect a CLI agent (Claude, agy, etc.) — what agents work on shows up here.
+          </p>
+          {handleAdd && (
+            <div className="mt-2.5 flex items-center gap-2">
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-[6px] border border-line bg-paper px-2 py-1 text-[11.5px] font-medium text-ink transition-colors hover:bg-sub"
+                onClick={handleAdd}
+              >
+                <PlusIcon width={12} height={12} />
+                Add CLI agent
+              </button>
+            </div>
+          )}
+        </div>
       ) : all ? (
         <>
           {working.length > 0 && <TaskGroup label="Working on" tasks={working} />}

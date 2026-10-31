@@ -555,7 +555,16 @@ export function CanvasPage({ canvasId }: { canvasId: string }) {
   } as CSSProperties
   const meFace = { name: me.name, color: presences[me.clientId]?.color ?? 'var(--brand)' }
 
+  const [initialAdd, setInitialAdd] = useState(false)
+
   function openConnect() {
+    setInitialAdd(false)
+    posthog.capture('agent_connection_opened')
+    setShowConnect(true)
+  }
+
+  function openAddAgent() {
+    setInitialAdd(true)
     posthog.capture('agent_connection_opened')
     setShowConnect(true)
   }
@@ -828,6 +837,8 @@ export function CanvasPage({ canvasId }: { canvasId: string }) {
             <ActivityPanel
               canvasId={canvasId}
               onClose={() => setShowActivity(false)}
+              onConnect={openConnect}
+              onAddAgent={openAddAgent}
               style={{ right: EDGE }}
               resize={{
                 label: 'Resize Agents panel',
@@ -973,14 +984,29 @@ export function CanvasPage({ canvasId }: { canvasId: string }) {
               className="max-h-[calc(100svh-56px)] gap-0 rounded-t-2xl border-line bg-surface p-0 shadow-pop data-[side=bottom]:h-[min(78svh,680px)]"
             >
               <SheetTitle className="sr-only">Canvas activity</SheetTitle>
-              <ActivityPanel canvasId={canvasId} onClose={() => setShowActivity(false)} surface="inline" />
+              <ActivityPanel
+                canvasId={canvasId}
+                onClose={() => setShowActivity(false)}
+                onConnect={openConnect}
+                onAddAgent={openAddAgent}
+                surface="inline"
+              />
             </SheetContent>
           </Sheet>
         </>
       )}
 
       {renaming && <RenameSelfModal current={me.name} onClose={() => setRenaming(false)} />}
-      {showConnect && <ConnectModal canvasId={canvasId} onClose={() => setShowConnect(false)} />}
+      {showConnect && (
+        <ConnectModal
+          canvasId={canvasId}
+          initialAdd={initialAdd}
+          onClose={() => {
+            setShowConnect(false)
+            setInitialAdd(false)
+          }}
+        />
+      )}
       {presenting && <PresentMode frameId={presenting} onClose={() => setPresenting(null)} />}
       {showShare && canvas && (
         <ShareModal

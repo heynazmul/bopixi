@@ -634,7 +634,10 @@ mod tests {
 
         let err = Env::parse_from([
             ("NODE_ENV", "production"),
-            ("DATABASE_URL", "postgres://bopixi:bopixi@127.0.0.1:5432/bopixi"),
+            (
+                "DATABASE_URL",
+                "postgres://bopixi:bopixi@127.0.0.1:5432/bopixi",
+            ),
         ])
         .unwrap_err();
         let text = err.to_string();
@@ -643,7 +646,10 @@ mod tests {
 
         let env = Env::parse_from([
             ("NODE_ENV", "production"),
-            ("DATABASE_URL", "postgres://bopixi:bopixi@127.0.0.1:5432/bopixi"),
+            (
+                "DATABASE_URL",
+                "postgres://bopixi:bopixi@127.0.0.1:5432/bopixi",
+            ),
             ("BETTER_AUTH_SECRET", "a-real-secret"),
             ("BETTER_AUTH_URL", "https://bopixi.example"),
         ])
@@ -657,7 +663,10 @@ mod tests {
 
         let env = Env::parse_from([
             ("NODE_ENV", "production"),
-            ("DATABASE_URL", "postgres://bopixi:bopixi@127.0.0.1:5432/bopixi"),
+            (
+                "DATABASE_URL",
+                "postgres://bopixi:bopixi@127.0.0.1:5432/bopixi",
+            ),
             ("BETTER_AUTH_SECRET", "a-real-secret"),
             ("BETTER_AUTH_URL", "https://bopixi.example"),
         ])
@@ -670,7 +679,10 @@ mod tests {
         let err = Env::parse_from([
             ("NODE_ENV", "production"),
             ("DISABLE_AUTH", "true"),
-            ("DATABASE_URL", "postgres://bopixi:bopixi@127.0.0.1:5432/bopixi"),
+            (
+                "DATABASE_URL",
+                "postgres://bopixi:bopixi@127.0.0.1:5432/bopixi",
+            ),
             ("BETTER_AUTH_SECRET", "a-real-secret"),
             ("BETTER_AUTH_URL", "https://bopixi.example"),
         ])

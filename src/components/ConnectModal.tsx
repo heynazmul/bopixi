@@ -62,19 +62,22 @@ export function ConnectModal({
   canvasId,
   onClose,
   initialAgent,
+  initialAdd = false,
   showAgentStatus = true,
 }: {
   canvasId?: string
   onClose: () => void
-  initialAgent?: AgentId
+  initialAgent?: AgentId | 'add'
+  initialAdd?: boolean
   /** Standalone setup can suggest a canvas without subscribing to its presence. */
   showAgentStatus?: boolean
 }) {
-  const [view, setView] = useState<View>(initialAgent ?? 'agents')
+  const isAdd = initialAdd || initialAgent === 'add'
+  const [view, setView] = useState<View>(isAdd || !initialAgent ? 'agents' : initialAgent)
   return (
     <Modal size="lg" className="flex flex-col overflow-hidden p-0 sm:p-0" onClose={onClose}>
       {view === 'agents' ? (
-        <AgentPicker onPick={setView} />
+        <AgentPicker onPick={setView} initialAdd={isAdd} />
       ) : (
         <AgentSteps
           agent={view}
@@ -90,14 +93,14 @@ export function ConnectModal({
 
 /* ---------- pick the agent, then its three steps ---------- */
 
-function AgentPicker({ onPick }: { onPick: (agent: AgentId) => void }) {
+function AgentPicker({ onPick, initialAdd = false }: { onPick: (agent: AgentId) => void; initialAdd?: boolean }) {
   /* Start where the last connection did, like a tool switcher. The last pick
      can be filtered out by a search; then the first visible one stands in. */
   const [agent, setAgent] = useState<AgentId>(() => lastAgentId() ?? 'claude-code')
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<CategoryFilter>('all')
   const [custom, setCustom] = useState<AgentEntry[]>(() => loadCustomAgents())
-  const [adding, setAdding] = useState(false)
+  const [adding, setAdding] = useState(initialAdd)
   const { online, worked } = useAgentStatuses()
 
   const roster = useMemo(() => [...AGENT_CATALOG, ...custom], [custom])
@@ -131,10 +134,23 @@ function AgentPicker({ onPick }: { onPick: (agent: AgentId) => void }) {
   return (
     <>
       <div className={body}>
-        <ModalTitle>Choose your agent</ModalTitle>
-        <ModalLede>
-          Let an agent you already use work on this canvas via MCP. Choose yours to see its connection instructions.
-        </ModalLede>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <ModalTitle>Choose your agent</ModalTitle>
+            <ModalLede>
+              Let an agent you already use work on this canvas via MCP. Choose yours to see its connection instructions.
+            </ModalLede>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="mt-1 shrink-0 gap-1.5 border border-line hover:border-ink-faint"
+            onClick={() => setAdding(true)}
+          >
+            <PlusIcon width={14} height={14} />
+            <span>Add CLI agent</span>
+          </Button>
+        </div>
 
         <SearchField
           className="mt-5 w-full"
@@ -231,23 +247,58 @@ function AddAgentForm({ onCancel, onAdd }: { onCancel: () => void; onAdd: (name:
     if (ready) onAdd(name, command)
   }
 
+  const handleNameChange = (val: string) => {
+    setName(val)
+    if (!command || command === 'claude' || command === 'agy' || command === 'codex' || command === 'aider') {
+      const lower = val.trim().toLowerCase()
+      if (lower === 'agy' || lower === 'antigravity') setCommand('agy')
+      else if (lower === 'claude' || lower === 'claude code') setCommand('claude')
+      else if (lower === 'codex') setCommand('codex')
+      else if (lower === 'aider') setCommand('aider')
+    }
+  }
+
+  const PRESETS = [
+    { label: 'Claude', name: 'Claude', command: 'claude' },
+    { label: 'Antigravity (agy)', name: 'Antigravity', command: 'agy' },
+    { label: 'Codex', name: 'Codex', command: 'codex' },
+    { label: 'Aider', name: 'Aider', command: 'aider' },
+  ]
+
   return (
     <>
       <div className={body}>
         <ModalTitle>Add a CLI agent</ModalTitle>
         <ModalLede>
-          Name the agent and the command that starts it. Bopixi connects over MCP, so it can design on your canvases.
+          Name the agent and the command that starts it (e.g. <code>claude</code>, <code>agy</code>). Bopixi connects over MCP, so it can design on your canvases.
         </ModalLede>
 
-        <div className="mt-5 space-y-4">
+        <div className="mt-4 flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-ink-faint">Presets:</span>
+          {PRESETS.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              className="rounded-full border border-line bg-surface/60 px-2.5 py-0.5 text-xs text-ink-soft transition-colors hover:border-ink-faint hover:text-ink"
+              onClick={() => {
+                setName(p.name)
+                setCommand(p.command)
+              }}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 space-y-4">
           <Field label="Agent name" labelVariant="form" htmlFor="custom-agent-name">
             <Input
               id="custom-agent-name"
               autoFocus
               maxLength={40}
-              placeholder="e.g. Aider"
+              placeholder="e.g. Claude, agy, Aider"
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(event) => handleNameChange(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') submit()
               }}
@@ -257,13 +308,13 @@ function AddAgentForm({ onCancel, onAdd }: { onCancel: () => void; onAdd: (name:
             label="Run command"
             labelVariant="form"
             htmlFor="custom-agent-command"
-            hint="The command you run to start it in a terminal."
+            hint="The command you run to start it in a terminal (e.g. claude, agy, aider)."
           >
             <Input
               id="custom-agent-command"
               className="font-mono"
               maxLength={300}
-              placeholder="aider --model sonnet"
+              placeholder="e.g. claude, agy, aider --model sonnet"
               value={command}
               onChange={(event) => setCommand(event.target.value)}
               onKeyDown={(event) => {
@@ -400,24 +451,53 @@ function manualSteps(entry: AgentEntry, mcpUrl: string, prompt: string): { lede:
  *  command that was given, sign in, then hand it the canvas. */
 function customSteps(entry: AgentEntry, mcpUrl: string, prompt: string): { lede: string; steps: Step[] } {
   const jsonConfig = JSON.stringify({ mcpServers: { bopixi: { type: 'http', url: mcpUrl } } }, null, 2)
+  const cmd = entry.command?.trim().toLowerCase() ?? ''
+  const name = entry.name.toLowerCase()
+  const isClaude = cmd.startsWith('claude') || name.includes('claude')
+  const isAgy = cmd.startsWith('agy') || name.includes('agy') || name.includes('antigravity')
+
+  let setupTitle = `Add Bopixi to ${entry.name}`
+  let setupBody: ReactNode = (
+    <>
+      Add a remote MCP server named <code>bopixi</code> with this address. Bopixi ships its own instructions and
+      design tools over that connection, so the agent knows how to work on a canvas.
+    </>
+  )
+  let setupCode = mcpUrl
+
+  if (isClaude) {
+    setupTitle = 'Add Bopixi as an MCP server in Claude'
+    setupBody = (
+      <>
+        Run this command once in your terminal. It registers the <code>bopixi</code> MCP server:
+      </>
+    )
+    setupCode = `claude mcp add --transport http bopixi "${mcpUrl}"`
+  } else if (isAgy) {
+    setupTitle = 'Add Bopixi to Antigravity (agy) MCP config'
+    setupBody = (
+      <>
+        Add Bopixi to <code>~/.gemini/config/mcp_config.json</code> or your project&rsquo;s{' '}
+        <code>.gemini/mcp_config.json</code>:
+      </>
+    )
+    setupCode = JSON.stringify({ mcpServers: { bopixi: { url: mcpUrl } } }, null, 2)
+  }
+
   return {
     lede: `${entry.name} runs in your terminal and connects back over MCP. Once it does, it designs here as you.`,
     steps: [
       {
-        title: `Add Bopixi to ${entry.name}`,
-        body: (
-          <>
-            Add a remote MCP server named <code>bopixi</code> with this address. Bopixi ships its own instructions and
-            design tools over that connection, so the agent knows how to work on a canvas.
-          </>
-        ),
-        code: mcpUrl,
-        action: (
-          <Disclosure label="Config-file form" className="mt-3 text-label leading-relaxed text-ink-soft">
-            <p>If it reads a JSON file instead, add this entry.</p>
-            <CodeBlock text={jsonConfig} className="mt-2" />
-          </Disclosure>
-        ),
+        title: setupTitle,
+        body: setupBody,
+        code: setupCode,
+        action:
+          !isClaude && !isAgy ? (
+            <Disclosure label="Config-file form" className="mt-3 text-label leading-relaxed text-ink-soft">
+              <p>If it reads a JSON file instead, add this entry.</p>
+              <CodeBlock text={jsonConfig} className="mt-2" />
+            </Disclosure>
+          ) : undefined,
       },
       {
         title: `Start ${entry.name}`,
@@ -651,6 +731,28 @@ function agentSteps(
           {
             title: 'Approve the sign-in',
             body: 'The first time your client connects, a browser tab opens to authorize it. The agent then works as you, and its edits are attributed to you.',
+          },
+          pointAt,
+        ],
+      }
+    case 'antigravity':
+      return {
+        lede: 'Two steps. Antigravity (agy) connects over MCP to design on your canvases.',
+        steps: [
+          {
+            title: 'Add Bopixi to Antigravity MCP config',
+            body: (
+              <>
+                Add Bopixi to <code>~/.gemini/config/mcp_config.json</code> (global) or{' '}
+                <code>.gemini/mcp_config.json</code> in your workspace:
+              </>
+            ),
+            code: JSON.stringify({ mcpServers: { bopixi: { url: mcpUrl } } }, null, 2),
+          },
+          {
+            title: 'Start Antigravity',
+            body: 'Run the agy CLI in your terminal and leave it open. It connects to Bopixi automatically:',
+            code: 'agy',
           },
           pointAt,
         ],

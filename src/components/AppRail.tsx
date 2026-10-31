@@ -9,6 +9,7 @@ import { timeAgo } from '../lib/time'
 import { openCanvasTab } from '../lib/desktop'
 import { cn } from '@/lib/utils'
 import { AgentIcon } from './AgentIcon'
+import { agentIdOfName, loadCustomAgents, type AgentEntry } from '../lib/agentCatalog'
 import { AccountMenu } from './DashShell'
 import { CanvasSearchModal, type PaletteCommand } from './CanvasSearchModal'
 import { ConnectModal } from './ConnectModal'
@@ -124,6 +125,18 @@ export function AppRail({
   }, [setDrawer])
   const [searching, setSearching] = useState(false)
   const [connecting, setConnecting] = useState(false)
+  const [initialAgent, setInitialAgent] = useState<string | undefined>(undefined)
+  const [initialAdd, setInitialAdd] = useState(false)
+  const [customAgents, setCustomAgents] = useState<AgentEntry[]>(() => loadCustomAgents())
+
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key === 'bopixi:customAgents') setCustomAgents(loadCustomAgents())
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
   const [toast, setToast] = useState<string | null>(null)
   /* a clock the render can read: an agent that just worked shows as live */
   const [now, setNow] = useState(0)
@@ -181,8 +194,17 @@ export function AppRail({
     setSearching(true)
   }
 
-  function connect() {
+  function connect(agentId?: string) {
     setDrawer(false)
+    setInitialAgent(agentId)
+    setInitialAdd(false)
+    setConnecting(true)
+  }
+
+  function openAddAgent() {
+    setDrawer(false)
+    setInitialAgent(undefined)
+    setInitialAdd(true)
     setConnecting(true)
   }
 
@@ -227,9 +249,16 @@ export function AppRail({
     {
       id: 'connect-agent',
       label: 'Connect an AI agent',
-      keywords: 'codex claude cursor mcp setup',
+      keywords: 'codex claude agy antigravity cursor mcp setup',
       icon: <CirclePlusIcon size="rail" />,
-      run: connect,
+      run: () => connect(),
+    },
+    {
+      id: 'add-agent',
+      label: 'Add a CLI agent',
+      keywords: 'add agent claude agy antigravity cli terminal run command',
+      icon: <PlusIcon size="rail" />,
+      run: openAddAgent,
     },
     {
       id: 'shortcuts',
@@ -290,9 +319,62 @@ export function AppRail({
     return [...map.values()].sort((x, y) => y.lastAt - x.lastAt).slice(0, 5)
   }, [list])
 
+  interface RailAgentItem {
+    id?: string
+    name: string
+    command?: string
+    color: string
+    lastAt: number
+    canvases: number
+    custom?: boolean
+  }
+
+  const allRailAgents = useMemo(() => {
+    const map = new Map<string, RailAgentItem>()
+    for (const a of agents) {
+      map.set(a.name.toLowerCase(), {
+        name: a.name,
+        color: colorFor(a.name),
+        lastAt: a.lastAt,
+        canvases: a.canvases,
+      })
+    }
+    for (const ca of customAgents) {
+      const key = ca.name.toLowerCase()
+      const existing = map.get(key)
+      if (existing) {
+        existing.id = ca.id
+        existing.command = ca.command
+        existing.custom = true
+      } else {
+        map.set(key, {
+          id: ca.id,
+          name: ca.name,
+          command: ca.command,
+          color: ca.color,
+          lastAt: 0,
+          canvases: 0,
+          custom: true,
+        })
+      }
+    }
+    return [...map.values()]
+  }, [agents, customAgents])
+
   const modals = (
     <>
-      {connecting && <ConnectModal onClose={() => setConnecting(false)} />}
+      {connecting && (
+        <ConnectModal
+          initialAgent={initialAgent}
+          initialAdd={initialAdd}
+          onClose={() => {
+            setConnecting(false)
+            setInitialAgent(undefined)
+            setInitialAdd(false)
+            setCustomAgents(loadCustomAgents())
+          }}
+        />
+      )}
       {searching && (
         <CanvasSearchModal
           canvases={list}
@@ -350,13 +432,18 @@ export function AppRail({
         <BlocksIcon size="rail" />
       </IconButton>
       <Rule />
-      {agents.map((a) => (
-        <span key={a.name} className="grid size-8 place-items-center" title={a.name}>
-          <AgentIcon name={a.name} size={14} color={colorFor(a.name)} />
-        </span>
+      {allRailAgents.map((a) => (
+        <IconButton
+          key={a.id || a.name}
+          aria-label={a.name}
+          title={`${a.name}${a.command ? ` (${a.command})` : ''}`}
+          onClick={() => connect(a.id || agentIdOfName(a.name))}
+        >
+          <AgentIcon name={a.name} size={14} color={a.color} />
+        </IconButton>
       ))}
-      <IconButton aria-label="Connect an agent" onClick={connect}>
-        <CirclePlusIcon size="rail" />
+      <IconButton aria-label="Add a CLI agent" title="Add a CLI agent (name & run command)" onClick={openAddAgent}>
+        <PlusIcon size="rail" />
       </IconButton>
       {children ? (
         <>
@@ -492,27 +579,45 @@ export function AppRail({
         {children}
       </div>
 
-      <DashSectionLabel density="rail">Agents</DashSectionLabel>
+      <div className="flex items-center justify-between pr-2">
+        <DashSectionLabel density="rail">Agents</DashSectionLabel>
+        <IconButton
+          size="sm"
+          aria-label="Add a CLI agent"
+          title="Add a CLI agent (name & run command)"
+          onClick={openAddAgent}
+        >
+          <PlusIcon width={13} height={13} />
+        </IconButton>
+      </div>
       <div className="flex flex-col gap-0.5">
-        {agents.map((a) => (
+        {allRailAgents.map((a) => (
           <DashNavItem
-            key={a.name}
-            as="div"
+            key={a.id || a.name}
             density="rail"
-            title={`${a.canvases} canvas${a.canvases === 1 ? '' : 'es'}`}
-            icon={<AgentIcon name={a.name} size={14} color={colorFor(a.name)} />}
+            title={
+              a.command
+                ? `${a.name} — ${a.command}${a.canvases ? ` (${a.canvases} canvas${a.canvases === 1 ? '' : 'es'})` : ''}`
+                : `${a.canvases} canvas${a.canvases === 1 ? '' : 'es'}`
+            }
+            icon={<AgentIcon name={a.name} size={14} color={a.color} />}
             trailing={
               a.lastAt > 0 && now - a.lastAt < LIVE_WINDOW ? (
                 <Dot size="sm" className="bg-success" title="working right now" />
-              ) : (
-                <span className="text-caption text-ink-faint">{a.lastAt > 0 ? timeAgo(a.lastAt) : ''}</span>
-              )
+              ) : a.lastAt > 0 ? (
+                <span className="text-caption text-ink-faint">{timeAgo(a.lastAt)}</span>
+              ) : a.command ? (
+                <span className="max-w-[70px] truncate font-mono text-[10px] text-ink-faint" title={a.command}>
+                  {a.command}
+                </span>
+              ) : null
             }
+            onClick={() => connect(a.id || agentIdOfName(a.name))}
           >
             {a.name}
           </DashNavItem>
         ))}
-        <DashNavItem density="rail" icon={<CirclePlusIcon size="rail" />} onClick={connect}>
+        <DashNavItem density="rail" icon={<CirclePlusIcon size="rail" />} onClick={openAddAgent}>
           Connect an agent
         </DashNavItem>
       </div>

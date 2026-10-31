@@ -17,7 +17,7 @@ import type { Brand } from '@/components/ui/brand-mark'
 export type AgentCategory = 'terminal' | 'editor' | 'chat' | 'other'
 
 /** the agents with a bespoke connect walkthrough */
-export type NativeAgentId = 'claude-code' | 'claude' | 'chatgpt' | 'codex' | 'cursor' | 'mcp'
+export type NativeAgentId = 'claude-code' | 'claude' | 'chatgpt' | 'codex' | 'cursor' | 'mcp' | 'antigravity'
 
 /** Every agent has a stable id; the built-ins are listed above, and a person
  *  can add their own CLI agents, whose ids are generated at add time. */
@@ -114,12 +114,14 @@ export const AGENT_CATALOG: AgentEntry[] = [
   },
   {
     id: 'antigravity',
-    name: 'Antigravity',
-    blurb: "Google's agent-first editor",
-    category: 'editor',
+    name: 'Antigravity (agy)',
+    blurb: "Google's agent-first CLI & editor",
+    category: 'terminal',
     monogram: 'An',
     color: '#4285F4',
-    match: ['antigravity'],
+    match: ['antigravity', 'agy'],
+    native: true,
+    command: 'agy',
   },
   {
     id: 'cline',
@@ -276,7 +278,7 @@ const NAME_RULES: [AgentId, RegExp][] = [
   ['codex', /codex/i],
   ['chatgpt', /\bchatgpt\b|\bgpt\b|\bopenai\b/i],
   ['claude', /claude/i],
-  ['antigravity', /antigravity/i],
+  ['antigravity', /\bantigravity\b|\bagy\b/i],
   ['kilo', /kilo/i],
   ['copilot', /copilot/i],
   ['opencode', /opencode|open code/i],

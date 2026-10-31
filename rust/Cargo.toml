@@ -1,0 +1,37 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/bopixi-core",
+  "crates/bopixi-db",
+  "crates/bopixi-auth",
+  "crates/bopixi-api",
+  "crates/bopixi-server",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.94"
+license = "AGPL-3.0-only"
+publish = false
+
+[workspace.dependencies]
+anyhow = "1"
+axum = "0.8"
+dotenvy = "0.15"
+http = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sqlx = { version = "0.8", default-features = false, features = [
+  "runtime-tokio",
+  "postgres",
+  "migrate",
+  "macros",
+] }
+thiserror = "2"
+time = { version = "0.3", features = ["formatting", "macros"] }
+tokio = { version = "1", features = ["full"] }
+tower-http = { version = "0.6", features = ["fs", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+url = "2"

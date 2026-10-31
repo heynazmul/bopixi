@@ -1,0 +1,714 @@
+import { nanoid } from 'nanoid'
+import { canvasPages, copyPageName, pageFrames, samePages } from '../shared/pages.ts'
+import * as persist from './db/persist.ts'
+import type { LinkAccess } from '../shared/canvasRole.ts'
+import { MAX_GUIDES } from '../shared/guides.ts'
+import { remapFrameTargets } from '../shared/prototype.ts'
+import type {
+  Canvas,
+  CanvasGuide,
+  CanvasPageInfo,
+  CommunityCategory,
+  Frame,
+  GuidelineDoc,
+  MemoryReference,
+} from '../shared/types.ts'
+
+export const MAX_PAGES = 100
+
+export class PageLimitError extends Error {
+  constructor() {
+    super(`A canvas holds at most ${MAX_PAGES} pages.`)
+  }
+}
+
+export class GuideLimitError extends Error {
+  constructor() {
+    super(`A canvas holds at most ${MAX_GUIDES} guides.`)
+  }
+}
+
+type PageCopy = {
+  source: CanvasPageInfo
+  page: CanvasPageInfo
+  pages: CanvasPageInfo[]
+  frames: Frame[]
+  guides: CanvasGuide[]
+}
+
+const names = (pages: CanvasPageInfo[]) => pages.map((page) => page.name)
+
+/**
+ * In-memory canvas/frame state — the hot path for reads, reveals and
+ * broadcasts. Every committed mutation is mirrored to the database via
+ * the write-through helpers in db/persist.ts; boot hydrates from there.
+ */
+class Store {
+  canvases = new Map<string, Canvas>()
+  private frameIndex = new Map<string, string>() // frameId -> canvasId
+  /** the page copy in flight per canvas, so the next one waits for it */
+  private pageCopies = new Map<string, Promise<unknown>>()
+
+  init(canvases: Canvas[]) {
+    for (const c of canvases) {
+      c.pages = canvasPages(c)
+      this.canvases.set(c.id, c)
+      for (const f of c.frames) {
+        /* A frame whose page is gone (the server died between a frame move
+           and the page's deletion: moves persist on a debounce, pages at
+           once) rejoins the first page instead of vanishing from every page. */
+        if (!f.pageId || !c.pages.some((page) => page.id === f.pageId)) {
+          f.pageId = c.pages[0]!.id
+          persist.saveFrame(f, true)
+        }
+        this.frameIndex.set(f.id, c.id)
+      }
+    }
+  }
+
+  /** The dashboard row for one canvas. `viewerId` decides only whether the
+   *  canvas is marked as shared-with-me; pass undefined for views that have
+   *  no viewer-relative meaning (the admin index). */
+  private toMeta(c: Canvas, viewerId?: string) {
+    return {
+      id: c.id,
+      name: c.name,
+      ownerId: c.ownerId,
+      shared: viewerId !== undefined ? c.ownerId !== viewerId || undefined : undefined,
+      ...(c.workspaceId ? { workspaceId: c.workspaceId } : {}),
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      frameCount: c.frames.length,
+      /* most recently touched frame — the home dashboard renders it as the
+         canvas preview via the public /i/ image pipeline */
+      previewFrameId: c.frames.length ? c.frames.reduce((a, b) => (b.updatedAt > a.updatedAt ? b : a)).id : undefined,
+    }
+  }
+
+  /** Canvases visible to a user: their own, ones they were invited to, and
+   *  every canvas in the workspaces they belong to (the caller resolves
+   *  membership — see workspaces.canvasesFor). Unowned (legacy/seeded)
+   *  canvases are NOT listed — listing them to everyone leaked one user's
+   *  work onto every other user's dashboard. They remain reachable by their
+   *  unguessable id and claimable there. */
+  listCanvases(userId: string, workspaceIds: readonly string[] = []) {
+    return [...this.canvases.values()]
+      .filter(
+        (c) =>
+          c.ownerId === userId ||
+          c.memberIds?.includes(userId) ||
+          (c.workspaceId !== undefined && workspaceIds.includes(c.workspaceId)),
+      )
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .map((c) => this.toMeta(c, userId))
+  }
+
+  /** The canvas signup made for this user (server/auth.ts): the oldest one
+   *  they own. Undefined once they have deleted it, or for an account that
+   *  predates the signup hook. */
+  firstCanvasOf(userId: string): Canvas | undefined {
+    let first: Canvas | undefined
+    for (const c of this.canvases.values()) {
+      if (c.ownerId === userId && (!first || c.createdAt < first.createdAt)) first = c
+    }
+    return first
+  }
+
+  /** Every canvas on the instance, for the admin index only. Access is the
+   *  caller's problem — the only caller is server/admin.ts, behind isAdmin.
+   *  A deliberately separate method rather than a flag on listCanvases: a
+   *  boolean parameter is the kind of thing that eventually gets passed
+   *  `true` from a route that shouldn't. */
+  /** Every canvas, unfiltered and unsummarised, for server-side loops that
+   *  apply their own access check per user (Live Activity push-to-start). */
+  allCanvases(): Canvas[] {
+    return [...this.canvases.values()]
+  }
+
+  listAllCanvases(limit = 200) {
+    const all = [...this.canvases.values()].sort((a, b) => b.updatedAt - a.updatedAt)
+    return {
+      total: all.length,
+      canvases: all.slice(0, limit).map((c) => ({
+        ...this.toMeta(c),
+        linkAccess: c.linkAccess ?? 'none',
+        memberCount: c.memberIds?.length ?? 0,
+      })),
+    }
+  }
+
+  createCanvas(name: string, ownerId?: string, workspaceId?: string): Canvas {
+    const now = Date.now()
+    const canvas: Canvas = { id: nanoid(10), name, ownerId, createdAt: now, updatedAt: now, frames: [] }
+    if (workspaceId) canvas.workspaceId = workspaceId
+    this.canvases.set(canvas.id, canvas)
+    canvas.pages = canvasPages(canvas)
+    persist.saveCanvas(canvas)
+    return canvas
+  }
+
+  /** Copy reusable design content into a new private canvas. Collaboration,
+   * activity, tasks, external connections and the gallery listing belong to
+   * the source only. `name` defaults to "<source> copy"; `dropDemo` leaves
+   * product-made onboarding frames behind (a gallery copy is the design,
+   * not the welcome tour that happened to sit next to it); `workspaceId`
+   * files the copy in a workspace (the caller checks membership). */
+  async duplicateCanvas(
+    id: string,
+    ownerId: string,
+    by: string,
+    options: { name?: string; dropDemo?: boolean; workspaceId?: string } = {},
+  ): Promise<Canvas | undefined> {
+    const source = this.canvases.get(id)
+    if (!source) return undefined
+    const now = Date.now()
+    const canvasId = nanoid(10)
+    const sourceFrames = options.dropDemo ? source.frames.filter((frame) => !frame.demo) : source.frames
+    const frameIds = new Map(sourceFrames.map((frame) => [frame.id, nanoid(10)]))
+    const frames = sourceFrames.map((frame) => ({
+      ...frame,
+      id: frameIds.get(frame.id)!,
+      html: remapFrameTargets(frame.html, frameIds),
+      approval: null,
+      canvasId,
+      createdAt: now,
+      updatedAt: now,
+      updatedBy: by,
+    }))
+    const guidelines = source.guidelines?.map((doc) => ({ ...doc, updatedAt: now, updatedBy: by }))
+    const references = source.references?.map((ref) => ({
+      ...ref,
+      id: nanoid(10),
+      frameId: frameIds.get(ref.frameId) ?? ref.frameId,
+      pinnedBy: by,
+      pinnedAt: now,
+    }))
+    const canvas: Canvas = {
+      id: canvasId,
+      name: options.name ?? `${source.name} copy`,
+      ownerId,
+      createdAt: now,
+      updatedAt: now,
+      frames,
+      pages: canvasPages(source).map(({ startFrameId, ...page }) => {
+        const start = startFrameId && frameIds.get(startFrameId)
+        return start ? { ...page, startFrameId: start } : page
+      }),
+      ...(source.guides?.length ? { guides: source.guides.map((guide) => ({ ...guide })) } : {}),
+      ...(options.workspaceId ? { workspaceId: options.workspaceId } : {}),
+      ...(guidelines?.length ? { guidelines } : {}),
+      ...(references?.length ? { references } : {}),
+    }
+    await persist.saveCanvasCopy(canvas)
+    this.canvases.set(canvas.id, canvas)
+    for (const frame of frames) this.frameIndex.set(frame.id, canvas.id)
+    return canvas
+  }
+
+  /** Copy a page and every frame on it (same names, geometry and html under
+   * fresh ids) into a new page right after the source, named "<source> copy"
+   * (numbered when that name is taken). Copies of one canvas run one after
+   * another so two at once cannot pick the same name or overshoot the page
+   * limit; memory changes only once the copy is durable, as with
+   * duplicateCanvas. Rejects with PageLimitError when the canvas is full. */
+  duplicatePage(canvasId: string, pageId: string, by: string): Promise<PageCopy | undefined> {
+    const previous = this.pageCopies.get(canvasId) ?? Promise.resolve()
+    const task = previous.then(
+      () => this.copyPage(canvasId, pageId, by),
+      () => this.copyPage(canvasId, pageId, by),
+    )
+    this.pageCopies.set(canvasId, task)
+    const release = () => {
+      if (this.pageCopies.get(canvasId) === task) this.pageCopies.delete(canvasId)
+    }
+    void task.then(release, release)
+    return task
+  }
+
+  private async copyPage(canvasId: string, pageId: string, by: string): Promise<PageCopy | undefined> {
+    const canvas = this.canvases.get(canvasId)
+    if (!canvas) return undefined
+    const pages = canvasPages(canvas)
+    const source = pages.find((page) => page.id === pageId)
+    if (!source) return undefined
+    if (pages.length >= MAX_PAGES) throw new PageLimitError()
+    const now = Date.now()
+    const sourceFrames = pageFrames(canvas, pageId)
+    const frameIds = new Map(sourceFrames.map((frame) => [frame.id, nanoid(10)]))
+    const start = source.startFrameId && frameIds.get(source.startFrameId)
+    const page: CanvasPageInfo = {
+      id: nanoid(10),
+      name: copyPageName(source.name, names(pages)),
+      ...(start ? { startFrameId: start } : {}),
+    }
+    /* links within the page follow the copy; links to other pages stay */
+    const frames: Frame[] = sourceFrames.map((frame) => ({
+      ...frame,
+      id: frameIds.get(frame.id)!,
+      html: remapFrameTargets(frame.html, frameIds),
+      pageId: page.id,
+      approval: null,
+      createdAt: now,
+      updatedAt: now,
+      updatedBy: by,
+    }))
+    const guides: CanvasGuide[] = (canvas.guides ?? [])
+      .filter((guide) => guide.pageId === pageId)
+      .map((guide) => ({ ...guide, id: nanoid(10), pageId: page.id }))
+    /* the copy's guides count against the canvas like any other */
+    if ((canvas.guides?.length ?? 0) + guides.length > MAX_GUIDES) throw new GuideLimitError()
+    const next = [...pages]
+    next.splice(pages.indexOf(source) + 1, 0, page)
+    await persist.savePageCopy(
+      { ...canvas, pages: next, guides: [...(canvas.guides ?? []), ...guides], updatedAt: now },
+      frames,
+    )
+    if (this.canvases.get(canvasId) !== canvas) return undefined
+    /* a page save may have landed during the write: slot the copy after the
+       source wherever it is now (or last, if the source is gone), under a
+       name the live list does not use */
+    const live = canvasPages(canvas)
+    if (names(live).includes(page.name)) page.name = copyPageName(source.name, names(live))
+    const at = live.findIndex((candidate) => candidate.id === pageId)
+    canvas.pages = [...live]
+    canvas.pages.splice(at === -1 ? live.length : at + 1, 0, page)
+    canvas.frames.push(...frames)
+    for (const frame of frames) this.frameIndex.set(frame.id, canvasId)
+    /* guides placed while the copy was being written stay alongside; the
+       copy keeps only as many of its own as the limit still has room for */
+    const copied = guides.length > 0
+    const room = Math.max(0, MAX_GUIDES - (canvas.guides?.length ?? 0))
+    if (guides.length > room) guides.splice(room)
+    if (guides.length) canvas.guides = [...(canvas.guides ?? []), ...guides]
+    canvas.updatedAt = Math.max(canvas.updatedAt, now)
+    if (!samePages(canvas.pages, next) || copied) persist.saveCanvas(canvas)
+    return { source, page, pages: canvas.pages, frames, guides }
+  }
+
+  /** Replace the page list. Returns the saved pages (flow starts kept) and
+   *  the guides that went with deleted pages, so peers can drop them;
+   *  undefined when the canvas is gone. */
+  setPages(
+    canvasId: string,
+    pages: import('../shared/types.ts').CanvasPageInfo[],
+  ): { pages: import('../shared/types.ts').CanvasPageInfo[]; dropped: CanvasGuide[] } | undefined {
+    const canvas = this.canvases.get(canvasId)
+    if (!canvas) return undefined
+    const firstId = canvasPages(canvas)[0]!.id
+    for (const frame of canvas.frames) {
+      if (!frame.pageId) {
+        frame.pageId = firstId
+        persist.saveFrame(frame, true)
+      }
+    }
+    /* a page-list save renames, reorders, adds or deletes pages — it never
+       moves a flow start, which only setFlowStart changes */
+    const current = canvasPages(canvas)
+    const merged = pages.map(({ startFrameId: _ignored, ...page }) => {
+      const startFrameId = current.find((p) => p.id === page.id)?.startFrameId
+      return startFrameId ? { ...page, startFrameId } : page
+    })
+    canvas.pages = merged
+    /* a deleted page takes its guides with it */
+    const kept = (guide: CanvasGuide) => merged.some((page) => page.id === guide.pageId)
+    const dropped = (canvas.guides ?? []).filter((guide) => !kept(guide))
+    if (dropped.length) canvas.guides = canvas.guides!.filter(kept)
+    canvas.updatedAt = Date.now()
+    persist.saveCanvas(canvas)
+    return { pages: merged, dropped }
+  }
+
+  /** Set (frameId) or clear (null) the frame a page's prototype starts on. */
+  setFlowStart(canvasId: string, pageId: string, frameId: string | null) {
+    const canvas = this.canvases.get(canvasId)
+    if (!canvas) return undefined
+    const pages = canvasPages(canvas)
+    if (!pages.some((p) => p.id === pageId)) return undefined
+    canvas.pages = pages.map((page) => {
+      if (page.id !== pageId) return page
+      const { startFrameId: _previous, ...rest } = page
+      return frameId ? { ...rest, startFrameId: frameId } : rest
+    })
+    canvas.updatedAt = Date.now()
+    persist.saveCanvas(canvas)
+    return canvas.pages
+  }
+
+  /** Add a ruler guide, or move one that exists. Undefined when the canvas
+   *  is gone; throws GuideLimitError on a canvas already holding the most. */
+  setGuide(canvasId: string, guide: CanvasGuide): CanvasGuide | undefined {
+    const canvas = this.canvases.get(canvasId)
+    if (!canvas) return undefined
+    const guides = canvas.guides ?? []
+    const exists = guides.some((g) => g.id === guide.id)
+    if (!exists && guides.length >= MAX_GUIDES) throw new GuideLimitError()
+    canvas.guides = exists ? guides.map((g) => (g.id === guide.id ? guide : g)) : [...guides, guide]
+    persist.saveCanvas(canvas)
+    return guide
+  }
+
+  /** Remove a ruler guide; false when there was no such guide. */
+  deleteGuide(canvasId: string, guideId: string): boolean {
+    const canvas = this.canvases.get(canvasId)
+    if (!canvas?.guides?.some((g) => g.id === guideId)) return false
+    canvas.guides = canvas.guides.filter((g) => g.id !== guideId)
+    persist.saveCanvas(canvas)
+    return true
+  }
+
+  getCanvas(id: string) {
+    return this.canvases.get(id)
+  }
+
+  /** Remove a canvas and its frames from memory + database. */
+  deleteCanvas(id: string): Canvas | undefined {
+    const c = this.canvases.get(id)
+    if (!c) return undefined
+    for (const f of c.frames) this.frameIndex.delete(f.id)
+    this.canvases.delete(id)
+    persist.deleteCanvas(id)
+    return c
+  }
+
+  /** Take ownership of a pre-auth (unowned) canvas. No-op if already owned. */
+  claimCanvas(id: string, userId: string): Canvas | undefined {
+    const c = this.canvases.get(id)
+    if (!c || c.ownerId) return undefined
+    c.ownerId = userId
+    persist.saveCanvas(c)
+    return c
+  }
+
+  /** Owner-set link policy ('none' is the default and stored as unset).
+   *  Deliberately does not bump updatedAt — a privacy toggle is not a
+   *  design edit. */
+  setLinkAccess(id: string, mode: LinkAccess): Canvas | undefined {
+    const c = this.canvases.get(id)
+    if (!c) return undefined
+    if (mode === 'none') delete c.linkAccess
+    else c.linkAccess = mode
+    persist.saveCanvas(c)
+    return c
+  }
+
+  /* ---- workspaces ---- */
+
+  /** File a canvas in a workspace, or take it back to its owner's personal
+   *  space (undefined). Access checks are the caller's; like the privacy
+   *  toggles this is not a design edit, so updatedAt stays put. */
+  setWorkspace(id: string, workspaceId: string | undefined): Canvas | undefined {
+    const c = this.canvases.get(id)
+    if (!c) return undefined
+    if (workspaceId) c.workspaceId = workspaceId
+    else delete c.workspaceId
+    persist.saveCanvas(c)
+    return c
+  }
+
+  countWorkspaceCanvases(workspaceId: string): number {
+    let n = 0
+    for (const c of this.canvases.values()) if (c.workspaceId === workspaceId) n++
+    return n
+  }
+
+  /** A workspace is going away: every canvas in it becomes personal again. */
+  detachWorkspace(workspaceId: string): void {
+    for (const c of this.canvases.values()) {
+      if (c.workspaceId === workspaceId) {
+        delete c.workspaceId
+        persist.saveCanvas(c)
+      }
+    }
+  }
+
+  /* ---- community gallery ---- */
+
+  /** List (or re-describe) a canvas in the gallery. Keeps the original
+   *  publish date on edits so "newest" stays honest. Not a design edit, so
+   *  updatedAt is left alone. */
+  publishCanvas(id: string, listing: { description: string; category: CommunityCategory }): Canvas | undefined {
+    const c = this.canvases.get(id)
+    if (!c) return undefined
+    c.publishedAt ??= Date.now()
+    c.category = listing.category
+    if (listing.description) c.description = listing.description
+    else delete c.description
+    persist.saveCanvas(c)
+    return c
+  }
+
+  unpublishCanvas(id: string): Canvas | undefined {
+    const c = this.canvases.get(id)
+    if (!c) return undefined
+    delete c.publishedAt
+    delete c.description
+    delete c.category
+    persist.saveCanvas(c)
+    return c
+  }
+
+  /** Every published canvas, newest listing first. Access is deliberately
+   *  not a question here: publishing is the owner's opt-in, and the gallery
+   *  exposes previews and copies, never the canvas itself. */
+  listPublished(): Canvas[] {
+    return [...this.canvases.values()]
+      .filter((c) => c.publishedAt !== undefined)
+      .sort((a, b) => b.publishedAt! - a.publishedAt!)
+  }
+
+  /** A gallery copy went out — the trending signal. */
+  recordCommunityCopy(id: string) {
+    const c = this.canvases.get(id)
+    if (!c) return
+    c.copyCount = (c.copyCount ?? 0) + 1
+    persist.saveCanvas(c)
+  }
+
+  /** Invite a user to collaborate. Idempotent; the owner is never listed. */
+  addMember(canvasId: string, userId: string, addedBy: string): Canvas | undefined {
+    const c = this.canvases.get(canvasId)
+    if (!c || c.ownerId === userId) return c
+    if (!(c.memberIds ??= []).includes(userId)) {
+      c.memberIds.push(userId)
+      persist.saveMember(canvasId, userId, addedBy, Date.now())
+    }
+    return c
+  }
+
+  removeMember(canvasId: string, userId: string): boolean {
+    const c = this.canvases.get(canvasId)
+    const idx = c?.memberIds?.indexOf(userId) ?? -1
+    if (!c || idx === -1) return false
+    c.memberIds!.splice(idx, 1)
+    persist.deleteMember(canvasId, userId)
+    return true
+  }
+
+  renameCanvas(id: string, name: string) {
+    const c = this.canvases.get(id)
+    if (!c) return undefined
+    c.name = name
+    c.updatedAt = Date.now()
+    persist.saveCanvas(c)
+    return c
+  }
+
+  getGuidelines(canvasId: string): GuidelineDoc[] {
+    return this.canvases.get(canvasId)?.guidelines ?? []
+  }
+
+  /** Upsert a design doc by name. New docs without a position are auto-placed
+   *  as a card to the left of the frames, stacked downward. */
+  setGuideline(
+    canvasId: string,
+    name: string,
+    markdown: string,
+    by: string,
+    pos?: { x: number; y: number },
+    title?: string,
+  ): GuidelineDoc | undefined {
+    const c = this.canvases.get(canvasId)
+    if (!c) return undefined
+    const docs = (c.guidelines ??= [])
+    const now = Date.now()
+    let doc = docs.find((d) => d.name === name)
+    if (doc) {
+      doc.markdown = markdown
+      doc.updatedAt = now
+      doc.updatedBy = by
+      if (pos) Object.assign(doc, pos)
+      if (title !== undefined) doc.title = title || undefined
+    } else {
+      const placed = pos ?? this.placeGuideline(c, docs.length)
+      doc = { name, markdown, ...(title ? { title } : {}), updatedAt: now, updatedBy: by, ...placed }
+      docs.push(doc)
+      docs.sort((a, b) => a.name.localeCompare(b.name))
+    }
+    c.updatedAt = now
+    persist.saveGuideline(canvasId, doc)
+    persist.saveCanvas(c)
+    return doc
+  }
+
+  private placeGuideline(c: Canvas, index: number): { x: number; y: number } {
+    const CARD_W = 360
+    if (!c.frames.length) return { x: 120, y: 120 + index * 380 }
+    const minX = Math.min(...c.frames.map((f) => f.x))
+    const minY = Math.min(...c.frames.map((f) => f.y))
+    return { x: minX - CARD_W - 100, y: minY + index * 380 }
+  }
+
+  /** Patch card position / display title; content and history stay untouched. */
+  patchGuideline(
+    canvasId: string,
+    name: string,
+    patch: { x?: number; y?: number; title?: string },
+  ): GuidelineDoc | undefined {
+    const c = this.canvases.get(canvasId)
+    const doc = c?.guidelines?.find((d) => d.name === name)
+    if (!c || !doc) return undefined
+    if (patch.x !== undefined) doc.x = patch.x
+    if (patch.y !== undefined) doc.y = patch.y
+    if (patch.title !== undefined) doc.title = patch.title || undefined
+    persist.saveGuideline(canvasId, doc)
+    return doc
+  }
+
+  deleteGuideline(canvasId: string, name: string): boolean {
+    const c = this.canvases.get(canvasId)
+    const idx = c?.guidelines?.findIndex((d) => d.name === name) ?? -1
+    if (!c || idx === -1) return false
+    c.guidelines!.splice(idx, 1)
+    c.updatedAt = Date.now()
+    persist.deleteGuideline(canvasId, name)
+    persist.saveCanvas(c)
+    return true
+  }
+
+  getReferences(canvasId: string): MemoryReference[] {
+    return this.canvases.get(canvasId)?.references ?? []
+  }
+
+  /** Pin a frame to Memory: snapshot its HTML now, decoupled from the frame. */
+  addReference(canvasId: string, frame: Frame, by: string): MemoryReference | undefined {
+    const c = this.canvases.get(canvasId)
+    if (!c) return undefined
+    const ref: MemoryReference = {
+      id: nanoid(10),
+      frameId: frame.id,
+      title: frame.name,
+      html: frame.html,
+      width: frame.width,
+      height: frame.height,
+      pinnedBy: by,
+      pinnedAt: Date.now(),
+    }
+    ;(c.references ??= []).unshift(ref)
+    persist.saveReference(canvasId, ref)
+    return ref
+  }
+
+  deleteReference(canvasId: string, id: string): MemoryReference | undefined {
+    const c = this.canvases.get(canvasId)
+    const idx = c?.references?.findIndex((r) => r.id === id) ?? -1
+    if (!c || idx === -1) return undefined
+    const [ref] = c.references!.splice(idx, 1)
+    persist.deleteReference(id)
+    return ref
+  }
+
+  getFrame(frameId: string): Frame | undefined {
+    const canvasId = this.frameIndex.get(frameId)
+    if (!canvasId) return undefined
+    return this.canvases.get(canvasId)?.frames.find((f) => f.id === frameId)
+  }
+
+  createFrame(
+    canvasId: string,
+    input: {
+      name: string
+      pageId?: string
+      x?: number
+      y?: number
+      width?: number
+      height?: number
+      html?: string
+      demo?: boolean
+      hidden?: boolean
+      locked?: boolean
+    },
+    by: string,
+  ): Frame | undefined {
+    const c = this.canvases.get(canvasId)
+    if (!c) return undefined
+    const pageId = input.pageId ?? canvasPages(c)[0]!.id
+    if (!canvasPages(c).some((page) => page.id === pageId)) return undefined
+    const frames = pageFrames(c, pageId)
+    const now = Date.now()
+    // auto-place: to the right of the right-most frame
+    let x = input.x
+    let y = input.y
+    if (x === undefined || y === undefined) {
+      const rightmost = frames.reduce((mx, f) => Math.max(mx, f.x + f.width), 0)
+      x ??= frames.length ? rightmost + 80 : 120
+      y ??= 120
+    }
+    const frame: Frame = {
+      id: nanoid(10),
+      canvasId,
+      pageId,
+      name: input.name,
+      x,
+      y,
+      width: input.width ?? 640,
+      height: input.height ?? 480,
+      html: input.html ?? '',
+      createdAt: now,
+      updatedAt: now,
+      updatedBy: by,
+    }
+    if (input.demo) frame.demo = true
+    if (input.hidden) frame.hidden = true
+    if (input.locked) frame.locked = true
+    c.frames.push(frame)
+    c.updatedAt = now
+    this.frameIndex.set(frame.id, canvasId)
+    persist.saveFrame(frame, true)
+    persist.saveCanvas(c)
+    return frame
+  }
+
+  updateFrame(
+    frameId: string,
+    patch: Partial<
+      Pick<Frame, 'name' | 'pageId' | 'x' | 'y' | 'width' | 'height' | 'html' | 'hidden' | 'locked' | 'approval'>
+    >,
+    by: string,
+    opts: {
+      /** the html change only marks elements up (a `data-doop-id` stamp):
+       *  nothing a reviewer signed off on moved, so sign-off stands */
+      annotation?: boolean
+    } = {},
+  ): Frame | undefined {
+    const frame = this.getFrame(frameId)
+    if (!frame) return undefined
+    if (
+      patch.pageId !== undefined &&
+      !canvasPages(this.canvases.get(frame.canvasId)!).some((p) => p.id === patch.pageId)
+    )
+      return undefined
+    const designChanged =
+      !opts.annotation &&
+      (['html', 'width', 'height'] as const).some((key) => patch[key] !== undefined && patch[key] !== frame[key])
+    Object.assign(frame, patch)
+    // All writers (including streams, sync and restores) invalidate sign-off.
+    if (designChanged && frame.approval?.status === 'ready_for_dev') {
+      frame.approval = { ...frame.approval, status: 'needs_review' }
+    }
+    // Also serves as the optimistic-save version, including writes in the same millisecond.
+    frame.updatedAt = Math.max(Date.now(), frame.updatedAt + 1)
+    frame.updatedBy = by
+    const c = this.canvases.get(frame.canvasId)!
+    c.updatedAt = frame.updatedAt
+    persist.saveFrame(frame) // debounced: streaming appends land as one write per burst
+    persist.saveCanvas(c)
+    return frame
+  }
+
+  deleteFrame(frameId: string): Frame | undefined {
+    const canvasId = this.frameIndex.get(frameId)
+    if (!canvasId) return undefined
+    const c = this.canvases.get(canvasId)
+    if (!c) return undefined
+    const idx = c.frames.findIndex((f) => f.id === frameId)
+    if (idx === -1) return undefined
+    const [frame] = c.frames.splice(idx, 1)
+    c.updatedAt = Date.now()
+    this.frameIndex.delete(frameId)
+    persist.deleteFrame(frameId)
+    persist.saveCanvas(c)
+    return frame
+  }
+}
+
+export const store = new Store()

@@ -1,0 +1,136 @@
+import * as React from 'react'
+import { authClient } from '../lib/auth'
+import { navigate } from '../App'
+import { posthog } from '../lib/posthog'
+import { useMe } from '../lib/me'
+import { isDesktopShell } from '../lib/shell'
+import { isTheme, useTheme } from '../lib/theme'
+import { colorFor } from '../../shared/types'
+import { DEFAULT_USER } from '../../shared/auth'
+import { themeOptions } from './ThemePicker'
+import { Badge } from './ui/badge'
+import { Avatar } from './ui/avatar'
+import { IconButton } from './ui/icon-button'
+import { Pressable } from './ui/pressable'
+import { PersonRow } from './ui/list'
+import {
+  DropdownMenu,
+  DropdownMenuCaption,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu'
+import { GearIcon, HelpIcon, LogOutIcon, ShieldIcon } from './ui/icons'
+
+/** The account menu the signed-in shell repeats on every page: in the rail
+ *  and in the settings header. It lives here so they cannot drift apart. */
+
+export function AccountMenu({
+  face = false,
+  side,
+  align,
+}: {
+  /** the round presence face the editor's rail wears, instead of the ink square */
+  face?: boolean
+  side?: React.ComponentProps<typeof DropdownMenuContent>['side']
+  align?: React.ComponentProps<typeof DropdownMenuContent>['align']
+} = {}) {
+  const { data: session } = authClient.useSession()
+  const me = useMe(session?.user.id)
+  const { theme, setTheme } = useTheme()
+  const name = session?.user.name ?? ''
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        {face ? (
+          <IconButton
+            aria-label="Account"
+            title={name}
+            shape="round"
+            className="size-7 hover:bg-transparent focus-visible:ring-ink-faint data-[state=open]:ring-2 data-[state=open]:ring-ink-faint"
+          >
+            <Avatar name={name} color={colorFor(session?.user.id ?? name)} size={28} className="shadow-none" />
+          </IconButton>
+        ) : (
+          <Pressable aria-label="Account" title={name} layout="inline" focus="ring" className="flex-none rounded-full">
+            <Avatar tone="ink" name={name} size={34} />
+          </Pressable>
+        )}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side={side} align={align} width="lg">
+        <DropdownMenuLabel className="px-2.5 pb-2.5 pt-2">
+          <PersonRow
+            avatar={<Avatar name={name} color={colorFor(session?.user.id ?? name)} size={32} className="shadow-none" />}
+            name={name}
+            detail={me?.email ?? session?.user.email}
+          />
+        </DropdownMenuLabel>
+        {/* the plan is a workspace thing; this line says which side of it the
+            account is on — a member of a live paid workspace is on Team */}
+        <div className="mx-2.5 mb-2 flex items-center gap-[7px] text-caption text-ink-soft">
+          {me?.plan === 'team' ? (
+            <>
+              <Badge tone="accent">team</Badge> Team plan
+            </>
+          ) : (
+            <>
+              <Badge>free</Badge> Personal plan
+            </>
+          )}
+        </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => navigate('/settings')}>
+          <GearIcon size="rail" /> Settings
+        </DropdownMenuItem>
+        {me?.admin && (
+          <DropdownMenuItem onSelect={() => navigate('/admin')}>
+            <ShieldIcon size="rail" /> Admin
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem asChild>
+          <a href="/docs" target="_blank" rel="noopener noreferrer">
+            <HelpIcon size="rail" /> Help &amp; docs
+          </a>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        {/* the theme is one click from every page; picking one keeps the menu
+            open so the change can be seen, and judged, before it closes */}
+        <DropdownMenuCaption>Appearance</DropdownMenuCaption>
+        <DropdownMenuRadioGroup value={theme} onValueChange={(next) => isTheme(next) && setTheme(next)}>
+          {themeOptions.map(({ value, label, Icon }) => (
+            <DropdownMenuRadioItem key={value} value={value} onSelect={(e) => e.preventDefault()}>
+              <Icon size="rail" /> {label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+        {/* local mode has no real session to end: signing out would only
+            reload back into the same local user, so the item is not shown */}
+        {session?.user.id !== DEFAULT_USER.id && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              tone="danger"
+              onSelect={() =>
+                authClient.signOut().then(() => {
+                  posthog.reset()
+                  /* the shell has no marketing site: a signed-out reload of /
+                     would show the landing page, so it goes to the sign-in form
+                     the shell opens on (main.rs) */
+                  if (isDesktopShell()) location.assign('/auth')
+                  else location.reload()
+                })
+              }
+            >
+              <LogOutIcon size="rail" /> Log out
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}

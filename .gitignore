@@ -1,0 +1,31 @@
+node_modules
+dist
+public/claude-extension
+data
+desktop/src-tauri/target
+desktop/src-tauri/gen
+.DS_Store
+.env*
+!.env.example
+
+# .claude/ is committed (skills, slash commands, settings.json define the
+# agent contract for this repo). Only the per-contributor and per-session
+# files are ignored.
+.claude/settings.local.json
+.claude/.current-tool
+chatgpt-plugin/dist/
+
+# the built component catalogue
+storybook-static/
+*storybook.log
+
+# Rust build output
+rust/target
+
+# locally installed third-party agent skills (per-machine, not part of the app)
+.agents/
+.claude/skills
+skills-lock.json
+
+# local archives
+*.tgz

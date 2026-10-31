@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <!-- Paints the saved theme before the bundle loads, so a reload never
+         flashes light. src/lib/theme.ts owns the key and takes over after. -->
+    <script>
+      ;(function () {
+        try {
+          var saved = localStorage.getItem('bopixi-theme')
+          var dark = saved === 'dark' || (saved !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.classList.toggle('dark', dark)
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
+        } catch (e) {}
+      })()
+    </script>
+    <title>Bopixi — designed by Agents &amp; Humans</title>
+    <meta
+      name="description"
+      content="Bopixi is a multiplayer design canvas where people and AI agents create side by side. Agents join through MCP as yours — every frame streams in live, with tasks, statuses and feedback flowing both ways."
+    />
+    <meta property="og:title" content="Bopixi — designed by Agents &amp; Humans" />
+    <meta
+      property="og:description"
+      content="A multiplayer design canvas where people and AI agents create side by side. Connect any MCP agent and watch it design live."
+    />
+    <meta property="og:type" content="website" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Hanken+Grotesk:wght@300&family=Geist+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.png" type="image/png" sizes="96x96" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

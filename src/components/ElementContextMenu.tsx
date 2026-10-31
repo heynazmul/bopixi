@@ -1,0 +1,139 @@
+import type { Frame } from '../../shared/types'
+import { useRef } from 'react'
+import { askAgentAbout } from '../lib/askAgent'
+import { copyElementLink } from '../lib/elementLink'
+import { copyLayer, hasElementClip, pasteLayer } from '../lib/elementClipboard'
+import { deleteLayer, duplicateLayer, setLayerHidden, setLayerLocked, shiftLayer } from '../lib/layerEdits'
+import { elementHtml, isElementHidden, isElementLocked } from '../lib/layers'
+import { MOD_KEY } from '../lib/keys'
+import { canEditOpenCanvas, useStore } from '../lib/store'
+import { ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from './ui/context-menu'
+import { MenuHint } from './ui/menu'
+
+/** What the live document said about a right-clicked element; a Layers row
+ *  has none, its selector comes from the saved HTML itself. */
+export interface LiveHit {
+  snippet: string
+  elementId?: string
+}
+
+/** Shared by a layer row and the element under a canvas right-click. */
+export function ElementContextMenu({ frame, selector, hit }: { frame: Frame; selector: string | null; hit?: LiveHit }) {
+  /* ask hands focus to the composer; the menu must not pull it back */
+  const asking = useRef(false)
+  return (
+    <ContextMenuContent
+      onCloseAutoFocus={(event) => {
+        if (!asking.current) return
+        asking.current = false
+        event.preventDefault()
+      }}
+    >
+      <ElementMenuItems
+        frame={frame}
+        selector={selector}
+        hit={hit}
+        onAsk={() => {
+          asking.current = true
+        }}
+      />
+    </ContextMenuContent>
+  )
+}
+
+/** Radix mounts these children only while the menu is open. Closed layer
+ *  rows must not parse their frame HTML just to render a dormant menu. */
+function ElementMenuItems({
+  frame,
+  selector,
+  hit,
+  onAsk,
+}: {
+  frame: Frame
+  selector: string | null
+  hit?: LiveHit
+  onAsk: () => void
+}) {
+  const hidden = selector ? isElementHidden(frame.html, selector) : null
+  const exists = hidden !== null
+  const ownLock = selector ? isElementLocked(frame.html, selector, true) : false
+  const locked = !!frame.locked || (selector ? isElementLocked(frame.html, selector) : false)
+  /* a view or comment link has no agent to ask */
+  const readOnly = useStore((s) => !canEditOpenCanvas(s))
+  return (
+    <>
+      <ContextMenuItem disabled={!exists} onSelect={() => selector && copyLayer(frame, selector)}>
+        Copy
+        <MenuHint>{MOD_KEY}C</MenuHint>
+      </ContextMenuItem>
+      <ContextMenuItem
+        disabled={locked || !hasElementClip() || (!!selector && !exists)}
+        onSelect={() => pasteLayer(frame, selector)}
+      >
+        Paste
+        <MenuHint>{MOD_KEY}V</MenuHint>
+      </ContextMenuItem>
+      {selector && exists && (
+        <>
+          {!readOnly && (
+            <>
+              <ContextMenuItem
+                disabled={locked}
+                onSelect={() => {
+                  onAsk()
+                  askAgentAbout({ frameId: frame.id, selector })
+                }}
+              >
+                Ask the agent about this element
+                <MenuHint>{MOD_KEY}K</MenuHint>
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+            </>
+          )}
+          <ContextMenuItem disabled={locked} onSelect={() => duplicateLayer(frame, selector)}>
+            Duplicate
+            <MenuHint>{MOD_KEY}D</MenuHint>
+          </ContextMenuItem>
+          <ContextMenuItem disabled={!!frame.locked} onSelect={() => setLayerHidden(frame, selector, !hidden)}>
+            {hidden ? 'Show' : 'Hide'}
+            <MenuHint>{MOD_KEY}⇧H</MenuHint>
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            onSelect={() => {
+              const html = elementHtml(frame.html, selector)
+              if (html) navigator.clipboard.writeText(html).catch(console.error)
+            }}
+          >
+            Copy HTML
+          </ContextMenuItem>
+          <ContextMenuItem onSelect={() => navigator.clipboard.writeText(selector).catch(console.error)}>
+            Copy selector
+          </ContextMenuItem>
+          <ContextMenuItem onSelect={() => void copyElementLink(frame, { selector, ...hit })}>
+            Copy link to element
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem disabled={locked} onSelect={() => shiftLayer(frame, selector, -1)}>
+            Move up
+            <MenuHint>⌥↑</MenuHint>
+          </ContextMenuItem>
+          <ContextMenuItem disabled={locked} onSelect={() => shiftLayer(frame, selector, 1)}>
+            Move down
+            <MenuHint>⌥↓</MenuHint>
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem disabled={!!frame.locked} onSelect={() => setLayerLocked(frame, selector, !ownLock)}>
+            {ownLock ? 'Unlock' : 'Lock'}
+            <MenuHint>{MOD_KEY}⇧L</MenuHint>
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem tone="danger" disabled={locked} onSelect={() => deleteLayer(frame, selector)}>
+            Delete element
+            <MenuHint>⌫</MenuHint>
+          </ContextMenuItem>
+        </>
+      )}
+    </>
+  )
+}

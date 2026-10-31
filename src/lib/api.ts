@@ -1,0 +1,632 @@
+import { useStore } from './store'
+import { beginFrameSave } from './frameSaves'
+import type { LocalAgentPreference, LocalAgentJob, LocalAgentResult } from '../../shared/localAgent'
+import type { NotificationPrefs, NotificationSettings } from '../../shared/notifications'
+import type { WebhookDeliveryResult, WebhookEventType, WebhookInfo } from '../../shared/webhooks'
+import type {
+  ActivityItem,
+  Canvas,
+  CanvasMeta,
+  CardScope,
+  CommunityCategory,
+  CommunityItem,
+  ElementComment,
+  Frame,
+  FrameVersion,
+  FrameVersionInfo,
+  WorkspaceDetail,
+  WorkspaceInvite,
+  WorkspaceMember,
+  WorkspaceRole,
+  WorkspaceSummary,
+} from '../../shared/types'
+import type { Automation, AutomationRun, AutomationTrigger, Schedule, Step } from '../../shared/automations'
+import type { BillingInterval, Plan } from '../../shared/billing'
+import type { LinkAccess } from '../../shared/canvasRole'
+import type { CommentAnchorInput } from '../../shared/comments'
+
+export type HomeActivity = ActivityItem & { canvasId: string; canvasName: string }
+
+export interface CanvasMember {
+  userId: string
+  name: string
+  email: string
+  owner: boolean
+}
+
+/** A write-only design-sync key: apps embed its secret in the bopixi-sync
+ *  snippet to push their live screens onto this canvas. */
+export interface SyncKeyInfo {
+  id: string
+  secret: string
+  canvasId: string
+  name: string
+  createdAt: number
+  lastUsedAt: number | null
+  /** synced frames currently on the canvas */
+  frames: number
+}
+
+/** An account-scoped bearer credential for /mcp (headless agents). The
+ *  secret exists only on the create response — the list shows `start`. */
+export interface AgentKeyInfo {
+  id: string
+  name: string
+  start: string
+  createdAt: number
+  lastUsedAt: number | null
+}
+
+/** The flow map of a canvas's synced app(s): link hotspots between frames
+ *  and how often users actually navigated each pair. */
+export interface SyncFlow {
+  links: {
+    fromFrameId: string
+    toFrameId: string
+    x: number
+    y: number
+    width: number
+    height: number
+    label: string | null
+  }[]
+  edges: { fromFrameId: string; toFrameId: string; count: number; lastAt: number }[]
+}
+
+/** A GitHub repo connected as an import source. The server keeps the token;
+ *  clients only ever see connection metadata. */
+export interface GithubConnectionInfo {
+  id: string
+  canvasId: string
+  repo: string
+  branch: string
+  createdAt: number
+  lastSyncedAt: number | null
+  /** how the connection authenticates: the GitHub App, or a pasted token */
+  via: 'app' | 'token'
+  /** frames on the canvas imported through this connection */
+  frames: number
+}
+
+export interface InstallationRepo {
+  fullName: string
+  private: boolean
+}
+
+export interface RepoScreen {
+  kind: 'page' | 'story' | 'component' | 'static'
+  route: string
+  sourcePath: string
+  title: string
+  dynamic: boolean
+  /** where the pixels come from: repo HTML, or an outline placeholder */
+  source: 'static' | 'placeholder'
+}
+
+export interface RepoManifest {
+  connection: Omit<GithubConnectionInfo, 'frames'>
+  framework: string | null
+  screens: RepoScreen[]
+  truncated: boolean
+}
+
+/** An import queues board cards — nothing lands on the canvas until the
+ *  Bopixi Agent finishes each one. `rejected` lists selections the server no
+ *  longer finds in the repo manifest. */
+export interface GithubImportResult {
+  cards: string[]
+  rejected: string[]
+}
+
+export interface DiscoveredPage {
+  url: string
+  title: string
+}
+
+export interface DiscoveredSite {
+  siteUrl: string
+  pages: DiscoveredPage[]
+  truncated: boolean
+}
+
+/** The Bopixi Agent's free-task meter for the signed-in user. */
+export interface Allowance {
+  used: number
+  limit: number
+  /** connected an agent of their own over MCP — unmetered */
+  connected: boolean
+  /** connected a model account the Bopixi Agent itself can run on */
+  byoModel: boolean
+  byoKind?: ModelAccountKind | 'claude-local' | 'gemini-cloud'
+  byoEmail?: string
+  /** free tasks are spent and their own account is carrying the agent */
+  onOwnAccount: boolean
+}
+
+export type ModelAccountKind = 'chatgpt' | 'openai-key' | 'anthropic-key' | 'openrouter-key' | 'gemini-key'
+
+/** An in-flight device sign-in: the user types `userCode` at `verificationUrl`
+ *  and the server polls OpenAI until they approve. */
+export interface DeviceFlow {
+  userCode: string
+  verificationUrl: string
+  status: 'pending' | 'connected' | 'error'
+  error?: string
+}
+
+export interface AgentModelOption {
+  id: string
+  name: string
+  blurb: string
+  /** false = the model cannot see screenshots; runs skip visual review */
+  vision?: boolean
+  /** true on a curated entry the provider's live catalog confirmed */
+  recommended?: boolean
+}
+
+/** The connected provider's live model list, or the curated menu when the
+ *  provider could not be asked (`live: false`, with the reason in `error`). */
+export interface AgentModelCatalog {
+  models: AgentModelOption[]
+  live: boolean
+  error?: string
+}
+
+export interface ModelAccountStatus {
+  connected: boolean
+  kind?: ModelAccountKind
+  email?: string
+  plan?: string
+  /** the model tier this account runs on right now */
+  model?: string
+  /** the reasoning effort in effect; only the OpenAI kinds have one */
+  effort?: string
+  connectedAt?: number
+  /** false when the server has switched the ChatGPT flow off */
+  chatgptEnabled?: boolean
+  /** the curated menu each provider's picker offers */
+  menus?: Record<ModelAccountKind, AgentModelOption[]>
+}
+
+/** One image-model registry entry's availability for this user. */
+export interface ImageModelStatus {
+  id: string
+  available: boolean
+  selected: boolean
+}
+
+export interface WebsiteImportResult {
+  frames: Frame[]
+  failures: { url: string; error: string }[]
+}
+
+/** What the server accepts when creating or patching an automation. */
+export interface AutomationInput {
+  name?: string
+  enabled?: boolean
+  schedule?: Schedule
+  steps?: Step[]
+  trigger?: AutomationTrigger
+}
+
+/** The Integrations page: per-provider connection state. A provider the
+ *  server has no app credentials for reports `enabled: false`. */
+export interface IntegrationsStatus {
+  [integration: string]: unknown
+  meta: {
+    enabled: boolean
+    connected: boolean
+    accountName?: string
+    accounts?: { id: string; name: string }[]
+    connectedAt?: number
+    expiresAt?: number | null
+  }
+}
+import { getIdentity } from './identity'
+
+export interface WorkspacesResponse {
+  workspaces: WorkspaceSummary[]
+  billing: { enabled: boolean }
+}
+
+export interface PlansResponse {
+  enabled: boolean
+  plans: Plan[]
+  /** intervals the server holds a Stripe price for */
+  intervals: BillingInterval[]
+}
+
+/** An invite lands one of two ways: an existing account is a member at
+ *  once; an unknown email waits (and was emailed, when SMTP is set up). */
+export type WorkspaceInviteResult = { member: WorkspaceMember } | { invite: WorkspaceInvite; emailed: boolean }
+
+function actor() {
+  const { clientId, name } = getIdentity()
+  return { clientId, name, kind: 'user' as const }
+}
+
+export class ApiError extends Error {
+  status: number
+  body: Record<string, unknown>
+  constructor(status: number, text: string) {
+    super(`${status} ${text}`)
+    this.status = status
+    try {
+      this.body = JSON.parse(text)
+    } catch {
+      this.body = {}
+    }
+  }
+}
+
+/** The paywall: a 402 naming the workspace that needs a plan. Every surface
+ *  that can grow a workspace turns this into the upgrade modal for it. */
+export function paywalledWorkspace(err: unknown): string | null {
+  if (!(err instanceof ApiError) || err.status !== 402) return null
+  return typeof err.body.workspaceId === 'string' ? err.body.workspaceId : null
+}
+
+export function errorMessage(err: unknown, fallback: string): string {
+  if (err instanceof ApiError) return String(err.body.error ?? err.body.message ?? fallback)
+  return fallback
+}
+
+export async function req<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
+    headers: { 'Content-Type': 'application/json' },
+    ...init,
+  })
+  if (!res.ok) throw new ApiError(res.status, await res.text())
+  return res.json()
+}
+
+export const api = {
+  listWebhooks: () => req<WebhookInfo[]>('/api/webhooks'),
+  createWebhook: (input: { url: string; events: WebhookEventType[] }) =>
+    req<WebhookInfo & { secret: string }>('/api/webhooks', { method: 'POST', body: JSON.stringify(input) }),
+  updateWebhook: (id: string, patch: { url?: string; events?: WebhookEventType[]; enabled?: boolean }) =>
+    req<WebhookInfo>(`/api/webhooks/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  deleteWebhook: (id: string) => req<{ ok: boolean }>(`/api/webhooks/${id}`, { method: 'DELETE' }),
+  rotateWebhookSecret: (id: string) => req<{ secret: string }>(`/api/webhooks/${id}/rotate`, { method: 'POST' }),
+  testWebhook: (id: string) => req<WebhookDeliveryResult>(`/api/webhooks/${id}/test`, { method: 'POST' }),
+  notificationSettings: () => req<NotificationSettings>('/api/notifications'),
+  setNotificationPrefs: (prefs: NotificationPrefs) =>
+    req<NotificationSettings>('/api/notifications', { method: 'PUT', body: JSON.stringify(prefs) }),
+  localAgent: () => req<LocalAgentPreference>('/api/local-agent'),
+  setLocalAgent: (preference: LocalAgentPreference) =>
+    req<LocalAgentPreference>('/api/local-agent', { method: 'PUT', body: JSON.stringify(preference) }),
+  pollLocalAgent: (deviceId: string) =>
+    req<{ job: LocalAgentJob | null; enabled: boolean }>('/api/local-agent/poll', {
+      method: 'POST',
+      body: JSON.stringify({ deviceId }),
+    }),
+  finishLocalAgent: (id: string, deviceId: string, result: LocalAgentResult) =>
+    req<{ ok: boolean }>(`/api/local-agent/finish/${id}`, {
+      method: 'POST',
+      body: JSON.stringify({ deviceId, ...result }),
+    }),
+  stopLocalAgent: () => req<{ ok: boolean }>('/api/local-agent/stop', { method: 'POST' }),
+  listCanvases: () => req<CanvasMeta[]>('/api/canvases'),
+  getCanvas: (id: string) => req<Canvas>(`/api/canvases/${id}`),
+  deleteCanvas: (id: string) => req(`/api/canvases/${id}`, { method: 'DELETE' }),
+  homeActivity: () => req<HomeActivity[]>('/api/home/activity'),
+  createCanvas: (name: string, workspaceId?: string) =>
+    req<Canvas>('/api/canvases', { method: 'POST', body: JSON.stringify({ name, workspaceId }) }),
+  /* file a canvas in a workspace, or back in its owner's personal space (null) */
+  moveCanvas: (id: string, workspaceId: string | null) =>
+    req(`/api/canvases/${id}/workspace`, { method: 'PUT', body: JSON.stringify({ workspaceId }) }),
+  duplicateCanvas: (id: string) => req<Canvas>(`/api/canvases/${id}/duplicate`, { method: 'POST' }),
+  claimCanvas: (id: string) => req(`/api/canvases/${id}/claim`, { method: 'POST' }),
+  renameCanvas: (id: string, name: string) =>
+    req('/api/canvases/' + id, { method: 'PATCH', body: JSON.stringify({ name, actor: actor() }) }),
+  /* owner-only: what the share link grants people who aren't invited */
+  setLinkAccess: (id: string, linkAccess: LinkAccess) =>
+    req('/api/canvases/' + id, { method: 'PATCH', body: JSON.stringify({ linkAccess }) }),
+  /* community gallery: owner-only listing, open browsing and copying */
+  publishCanvas: (id: string, listing: { description: string; category: CommunityCategory }) =>
+    req<Pick<Canvas, 'publishedAt' | 'description' | 'category'>>(`/api/canvases/${id}/publish`, {
+      method: 'PUT',
+      body: JSON.stringify(listing),
+    }),
+  unpublishCanvas: (id: string) => req(`/api/canvases/${id}/publish`, { method: 'DELETE' }),
+  listCommunity: () => req<CommunityItem[]>('/api/community'),
+  copyCommunityCanvas: (id: string) => req<Canvas>(`/api/community/${id}/copy`, { method: 'POST' }),
+  /* collaborators: the owner plus invited members */
+  listMembers: (canvasId: string) => req<CanvasMember[]>(`/api/canvases/${canvasId}/members`),
+  inviteMember: (canvasId: string, email: string) =>
+    req<CanvasMember>(`/api/canvases/${canvasId}/members`, { method: 'POST', body: JSON.stringify({ email }) }),
+  removeMember: (canvasId: string, userId: string) =>
+    req(`/api/canvases/${canvasId}/members/${userId}`, { method: 'DELETE' }),
+  /* design-sync keys for the embeddable snippet */
+  listSyncKeys: (canvasId: string) => req<SyncKeyInfo[]>(`/api/canvases/${canvasId}/sync-keys`),
+  createSyncKey: (canvasId: string, name: string) =>
+    req<SyncKeyInfo>(`/api/canvases/${canvasId}/sync-keys`, { method: 'POST', body: JSON.stringify({ name }) }),
+  deleteSyncKey: (canvasId: string, keyId: string) =>
+    req(`/api/canvases/${canvasId}/sync-keys/${keyId}`, { method: 'DELETE' }),
+  syncFlow: (canvasId: string) => req<SyncFlow>(`/api/canvases/${canvasId}/sync-flow`),
+  /* agent keys: bearer credentials for headless MCP clients */
+  listAgentKeys: () => req<AgentKeyInfo[]>('/api/agent-keys'),
+  createAgentKey: (name: string) =>
+    req<AgentKeyInfo & { secret: string }>('/api/agent-keys', { method: 'POST', body: JSON.stringify({ name }) }),
+  deleteAgentKey: (keyId: string) => req(`/api/agent-keys/${keyId}`, { method: 'DELETE' }),
+  /* GitHub repos connected as import sources */
+  listGithubConnections: (canvasId: string) => req<GithubConnectionInfo[]>(`/api/canvases/${canvasId}/github`),
+  connectGithub: (canvasId: string, input: { repo: string; token?: string; pass?: string; branch?: string }) =>
+    req<GithubConnectionInfo>(`/api/canvases/${canvasId}/github`, { method: 'POST', body: JSON.stringify(input) }),
+  githubAppInfo: () => req<{ enabled: boolean; slug: string }>('/api/github/app'),
+  startGithubInstall: (canvasId: string) =>
+    req<{ url: string }>(`/api/canvases/${canvasId}/github/app/start`, { method: 'POST' }),
+  listInstallationRepos: (canvasId: string, pass: string) =>
+    req<InstallationRepo[]>(`/api/canvases/${canvasId}/github/app/repos?pass=${encodeURIComponent(pass)}`),
+  deleteGithubConnection: (canvasId: string, connId: string) =>
+    req(`/api/canvases/${canvasId}/github/${connId}`, { method: 'DELETE' }),
+  analyzeGithub: (canvasId: string, connId: string) =>
+    req<RepoManifest>(`/api/canvases/${canvasId}/github/${connId}/analyze`, { method: 'POST' }),
+  importGithubScreens: (canvasId: string, connId: string, screens: RepoScreen[], designSystem = true) =>
+    req<GithubImportResult>(`/api/canvases/${canvasId}/github/${connId}/import`, {
+      method: 'POST',
+      body: JSON.stringify({ screens, design_system: designSystem }),
+    }),
+  guidelineHistory: (canvasId: string, name: string) =>
+    req<{ markdown: string; savedAt: number; savedBy: string }[]>(
+      `/api/canvases/${canvasId}/guidelines/${encodeURIComponent(name)}/history`,
+    ),
+  /* empty markdown deletes the guide; title is the pretty display name */
+  setGuideline: (canvasId: string, name: string, markdown: string, title?: string) =>
+    req(`/api/canvases/${canvasId}/guidelines/${encodeURIComponent(name)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ markdown, ...(title !== undefined ? { title } : {}) }),
+    }),
+  /* design memory */
+  pinReference: (canvasId: string, frameId: string) =>
+    req(`/api/canvases/${canvasId}/references`, { method: 'POST', body: JSON.stringify({ frameId }) }),
+  unpinReference: (canvasId: string, refId: string) =>
+    req(`/api/canvases/${canvasId}/references/${refId}`, { method: 'DELETE' }),
+  resolveProposal: (canvasId: string, proposalId: string, accept: boolean) =>
+    req(`/api/canvases/${canvasId}/proposals/${proposalId}`, { method: 'POST', body: JSON.stringify({ accept }) }),
+  /* raw image bytes -> permanent /a/ URL (5 MB cap, type sniffed server-side) */
+  uploadAsset: async (canvasId: string, blob: Blob) => {
+    const res = await fetch(`/api/canvases/${canvasId}/assets`, {
+      method: 'POST',
+      headers: { 'Content-Type': blob.type || 'application/octet-stream' },
+      body: blob,
+    })
+    if (!res.ok) {
+      if (res.status === 413) throw new Error('image exceeds the 5 MB limit')
+      const text = await res.text()
+      let msg = `${res.status} ${text}`
+      try {
+        msg = JSON.parse(text).error || msg
+      } catch {
+        /* non-JSON error body */
+      }
+      throw new Error(msg)
+    }
+    return res.json() as Promise<{ url: string; mime: string; size: number }>
+  },
+  setPages: (
+    canvasId: string,
+    pages: import('../../shared/types').CanvasPageInfo[],
+    expectedPages: import('../../shared/types').CanvasPageInfo[],
+  ) =>
+    req<import('../../shared/types').CanvasPageInfo[]>(`/api/canvases/${canvasId}/pages`, {
+      method: 'PUT',
+      body: JSON.stringify({ pages, expectedPages }),
+    }),
+  setFlowStart: (canvasId: string, pageId: string, frameId: string | null) =>
+    req<import('../../shared/types').CanvasPageInfo[]>(
+      `/api/canvases/${canvasId}/pages/${encodeURIComponent(pageId)}/flow-start`,
+      { method: 'PUT', body: JSON.stringify({ frameId }) },
+    ),
+  putGuide: (canvasId: string, guide: import('../../shared/types').CanvasGuide) =>
+    req<import('../../shared/types').CanvasGuide>(`/api/canvases/${canvasId}/guides/${guide.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ pageId: guide.pageId, axis: guide.axis, at: guide.at }),
+    }),
+  deleteGuide: (canvasId: string, guideId: string) =>
+    req<{ ok: true }>(`/api/canvases/${canvasId}/guides/${guideId}`, { method: 'DELETE' }),
+  duplicatePage: (canvasId: string, pageId: string) =>
+    req<{
+      page: import('../../shared/types').CanvasPageInfo
+      pages: import('../../shared/types').CanvasPageInfo[]
+      frames: Frame[]
+    }>(`/api/canvases/${canvasId}/pages/${pageId}/duplicate`, { method: 'POST' }),
+  createFrame: (canvasId: string, input: Partial<Frame> & { name: string }) =>
+    req<Frame>(`/api/canvases/${canvasId}/frames`, {
+      method: 'POST',
+      body: JSON.stringify({
+        pageId:
+          useStore.getState().canvas?.id === canvasId ? (useStore.getState().activePageId ?? undefined) : undefined,
+        ...input,
+        actor: actor(),
+      }),
+    }),
+  updateFrame: async (frameId: string, patch: Partial<Frame>, expectedUpdatedAt?: number) => {
+    const finish = ['html', 'width', 'height'].some((key) => key in patch) ? beginFrameSave(frameId) : () => {}
+    try {
+      return await req<Frame>('/api/frames/' + frameId, {
+        method: 'PATCH',
+        body: JSON.stringify({ ...patch, expectedUpdatedAt, actor: actor() }),
+      })
+    } finally {
+      finish()
+    }
+  },
+  deleteFrame: (frameId: string, expectedUpdatedAt?: number) =>
+    req('/api/frames/' + frameId, { method: 'DELETE', body: JSON.stringify({ expectedUpdatedAt, actor: actor() }) }),
+  setFrameApproval: (frameId: string, status: 'ready_for_dev' | 'draft', expectedUpdatedAt: number) =>
+    req<Frame>(`/api/frames/${frameId}/approval`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, expectedUpdatedAt }),
+    }),
+  /* design history: the states earlier edits replaced, newest first (no HTML) */
+  frameVersions: (frameId: string) => req<FrameVersionInfo[]>(`/api/frames/${frameId}/versions`),
+  frameVersion: (frameId: string, versionId: string) =>
+    req<FrameVersion>(`/api/frames/${frameId}/versions/${versionId}`),
+  /* `replaced` is the complete state the server swapped out — the undo copy */
+  restoreFrameVersion: (frameId: string, versionId: string) =>
+    req<{ frame: Frame; replaced: Pick<Frame, 'html' | 'width' | 'height'> }>(
+      `/api/frames/${frameId}/versions/${versionId}/restore`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ actor: actor() }),
+      },
+    ),
+  sendTaskFeedback: (taskId: string, text: string) =>
+    req(`/api/tasks/${taskId}/feedback`, { method: 'POST', body: JSON.stringify({ text, from: getIdentity().name }) }),
+  importPage: (canvasId: string, url: string) =>
+    req<Frame>(`/api/canvases/${canvasId}/import`, { method: 'POST', body: JSON.stringify({ url }) }),
+  discoverSitePages: (canvasId: string, url: string) =>
+    req<DiscoveredSite>(`/api/canvases/${canvasId}/import/discover`, {
+      method: 'POST',
+      body: JSON.stringify({ url }),
+    }),
+  importSitePages: (canvasId: string, urls: string[]) =>
+    req<WebsiteImportResult>(`/api/canvases/${canvasId}/import`, {
+      method: 'POST',
+      body: JSON.stringify({ urls }),
+    }),
+  agentAllowance: () => req<Allowance>('/api/agent-allowance'),
+  modelAccount: () => req<ModelAccountStatus>('/api/model-account'),
+  agentModels: () => req<AgentModelCatalog>('/api/model-account/models'),
+  chatgptAuthorize: () =>
+    req<{ url: string; state: string; catching: boolean }>('/api/model-account/chatgpt/authorize', { method: 'POST' }),
+  startDeviceAuth: () => req<DeviceFlow>('/api/model-account/chatgpt/device', { method: 'POST' }),
+  deviceAuthStatus: () => req<DeviceFlow | { status: 'none' }>('/api/model-account/chatgpt/device'),
+  cancelDeviceAuth: () => req('/api/model-account/chatgpt/device', { method: 'DELETE' }),
+  connectChatgpt: (redirect: string) =>
+    req<ModelAccountStatus>('/api/model-account/chatgpt', { method: 'POST', body: JSON.stringify({ redirect }) }),
+  connectOpenAiKey: (apiKey: string) =>
+    req<ModelAccountStatus>('/api/model-account/openai-key', { method: 'POST', body: JSON.stringify({ apiKey }) }),
+  connectAnthropicKey: (apiKey: string) =>
+    req<ModelAccountStatus>('/api/model-account/anthropic-key', { method: 'POST', body: JSON.stringify({ apiKey }) }),
+  connectOpenRouterKey: (apiKey: string) =>
+    req<ModelAccountStatus>('/api/model-account/openrouter-key', { method: 'POST', body: JSON.stringify({ apiKey }) }),
+  connectGeminiKey: (apiKey: string) =>
+    req<ModelAccountStatus>('/api/model-account/gemini-key', { method: 'POST', body: JSON.stringify({ apiKey }) }),
+  disconnectModelAccount: () => req<ModelAccountStatus>('/api/model-account', { method: 'DELETE' }),
+  setAgentModel: (model: string) =>
+    req<ModelAccountStatus>('/api/model-account', { method: 'PATCH', body: JSON.stringify({ model }) }),
+  setAgentEffort: (effort: string) =>
+    req<ModelAccountStatus>('/api/model-account', { method: 'PATCH', body: JSON.stringify({ effort }) }),
+  imageModels: () => req<{ models: ImageModelStatus[] }>('/api/image-model'),
+  setImageModel: (model: string) =>
+    req<{ models: ImageModelStatus[] }>('/api/image-model', { method: 'PUT', body: JSON.stringify({ model }) }),
+  addCard: (canvasId: string, title: string, agents: string[], attachments?: string[], scope?: CardScope) =>
+    req(`/api/canvases/${canvasId}/cards`, {
+      method: 'POST',
+      body: JSON.stringify({ title, agents, attachments, scope }),
+    }),
+  completeCard: (canvasId: string, cardId: string) =>
+    req(`/api/canvases/${canvasId}/cards/${cardId}/done`, { method: 'POST' }),
+  retryCard: (canvasId: string, cardId: string) =>
+    req(`/api/canvases/${canvasId}/cards/${cardId}/retry`, { method: 'POST' }),
+  stopCard: (canvasId: string, cardId: string) =>
+    req(`/api/canvases/${canvasId}/cards/${cardId}/stop`, { method: 'POST' }),
+  /** x/y: where a comment on the frame as a whole was left, in design px */
+  /** a comment on an element (its positional selector, which the server turns into a stamped
+   *  data-doop-id, or the id it already carries) or, with neither, on the frame at the point */
+  addComment: (
+    frameId: string,
+    input: { selector?: string; elementId?: string; snippet: string; text: string; x: number; y: number },
+  ) => req<ElementComment>(`/api/frames/${frameId}/comments`, { method: 'POST', body: JSON.stringify(input) }),
+  /** the stable id of the element a positional selector names, stamped into the frame if needed */
+  ensureElementId: (frameId: string, selector: string, snippet?: string) =>
+    req<{ elementId: string }>(`/api/frames/${frameId}/element-id`, {
+      method: 'POST',
+      body: JSON.stringify({ selector, ...(snippet ? { snippet } : {}) }),
+    }),
+  /** a comment pinned to a point on the canvas (world coordinates on a page) rather than to an element */
+  addCanvasComment: (canvasId: string, input: { pageId: string; x: number; y: number; text: string }) =>
+    req(`/api/canvases/${canvasId}/comments`, { method: 'POST', body: JSON.stringify(input) }),
+  replyComment: (commentId: string, text: string) =>
+    req(`/api/comments/${commentId}/replies`, { method: 'POST', body: JSON.stringify({ text }) }),
+  resolveComment: (commentId: string) => req(`/api/comments/${commentId}/resolve`, { method: 'POST' }),
+  /** re-pin a thread (its root or any reply names it) where its pin was dropped */
+  moveComment: (commentId: string, anchor: CommentAnchorInput) =>
+    req<ElementComment>(`/api/comments/${commentId}/anchor`, { method: 'PATCH', body: JSON.stringify(anchor) }),
+  retryComment: (commentId: string) => req(`/api/comments/${commentId}/retry`, { method: 'POST' }),
+  retryTaskFeedback: (feedbackId: string) => req(`/api/feedback/${feedbackId}/retry`, { method: 'POST' }),
+  /* automations: scheduled pulls and agent tasks */
+  listAutomations: () => req<Automation[]>('/api/automations'),
+  getAutomation: (id: string) => req<Automation>(`/api/automations/${id}`),
+  createAutomation: (input: AutomationInput) =>
+    req<Automation>('/api/automations', { method: 'POST', body: JSON.stringify(input) }),
+  updateAutomation: (id: string, input: AutomationInput) =>
+    req<Automation>(`/api/automations/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
+  deleteAutomation: (id: string) => req(`/api/automations/${id}`, { method: 'DELETE' }),
+  runAutomation: (id: string) => req<AutomationRun>(`/api/automations/${id}/run`, { method: 'POST' }),
+  listRuns: (id: string, before?: number) =>
+    req<AutomationRun[]>(`/api/automations/${id}/runs${before ? `?before=${before}` : ''}`),
+  /* workspaces: the shared, per-seat paid space for a team */
+  listWorkspaces: () => req<WorkspacesResponse>('/api/workspaces'),
+  createWorkspace: (name: string) =>
+    req<WorkspaceSummary>('/api/workspaces', { method: 'POST', body: JSON.stringify({ name }) }),
+  getWorkspace: (id: string) => req<WorkspaceDetail>(`/api/workspaces/${id}`),
+  renameWorkspace: (id: string, name: string) =>
+    req<WorkspaceSummary>(`/api/workspaces/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
+  deleteWorkspace: (id: string) => req(`/api/workspaces/${id}`, { method: 'DELETE' }),
+  inviteToWorkspace: (id: string, email: string, role: WorkspaceRole = 'member') =>
+    req<WorkspaceInviteResult>(`/api/workspaces/${id}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ email, role }),
+    }),
+  setWorkspaceRole: (id: string, userId: string, role: WorkspaceRole) =>
+    req(`/api/workspaces/${id}/members/${userId}`, { method: 'PATCH', body: JSON.stringify({ role }) }),
+  removeWorkspaceMember: (id: string, userId: string) =>
+    req(`/api/workspaces/${id}/members/${userId}`, { method: 'DELETE' }),
+  revokeWorkspaceInvite: (id: string, inviteId: string) =>
+    req(`/api/workspaces/${id}/invites/${inviteId}`, { method: 'DELETE' }),
+  /* billing: the catalogue, and the hosted Stripe pages */
+  billingPlans: () => req<PlansResponse>('/api/billing/plans'),
+  workspaceCheckout: (id: string, interval: BillingInterval) =>
+    req<{ url: string }>(`/api/workspaces/${id}/billing/checkout`, {
+      method: 'POST',
+      body: JSON.stringify({ interval }),
+    }),
+  workspacePortal: (id: string) => req<{ url: string }>(`/api/workspaces/${id}/billing/portal`, { method: 'POST' }),
+  syncWorkspaceBilling: (id: string, sessionId?: string) =>
+    req<WorkspaceSummary>(`/api/workspaces/${id}/billing/sync`, {
+      method: 'POST',
+      body: JSON.stringify({ sessionId }),
+    }),
+  /* integrations: per-user connections to outside services */
+  integrations: () => req<IntegrationsStatus>('/api/integrations'),
+  automationLinearTeams: () => req<{ id: string; name: string; key: string }[]>('/api/integrations/linear/teams'),
+  disconnectMeta: () => req<IntegrationsStatus>('/api/integrations/meta', { method: 'DELETE' }),
+}
+
+export interface AdminCanvas extends CanvasMeta {
+  linkAccess: LinkAccess
+  memberCount: number
+  owner?: { id: string; name: string; email: string }
+}
+
+export interface AdminUser {
+  id: string
+  name: string
+  email: string
+  role: string | null
+  banned: boolean | null
+  createdAt: number
+  canvasCount: number
+}
+
+/** Instance-admin surface. Every route 404s for non-admins, so a failure here
+ *  is indistinguishable from the feature not existing — which is the point. */
+export const adminApi = {
+  canvases: () => req<{ total: number; canvases: AdminCanvas[] }>('/api/admin/canvases'),
+  stats: () => req<{ users: number; canvases: number; frames: number }>('/api/admin/stats'),
+  users: () => req<AdminUser[]>('/api/admin/users'),
+
+  /* better-auth's own endpoints, not ours: they swap the session cookie, so
+     every caller reloads afterwards rather than trying to reconcile state. */
+  impersonate: (userId: string) =>
+    req('/api/auth/admin/impersonate-user', { method: 'POST', body: JSON.stringify({ userId }) }),
+  stopImpersonating: () => req('/api/auth/admin/stop-impersonating', { method: 'POST' }),
+
+  /* also better-auth's: banning revokes the user's sessions and blocks
+     sign-in; the server refuses their MCP tokens separately */
+  ban: (userId: string, banReason?: string) =>
+    req('/api/auth/admin/ban-user', { method: 'POST', body: JSON.stringify({ userId, banReason }) }),
+  unban: (userId: string) => req('/api/auth/admin/unban-user', { method: 'POST', body: JSON.stringify({ userId }) }),
+}

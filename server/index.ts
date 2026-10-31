@@ -1,0 +1,2478 @@
+import { env } from './env.ts'
+import { canvasPages, framePageId, samePages } from '../shared/pages.ts'
+import type { CommentAnchorInput } from '../shared/comments.ts'
+import { FIRST_CANVAS_PATH, SIGNUP_PARAM, parseSignupMethod } from '../shared/firstCanvas.ts'
+import { localAgentRouter, handleLocalAgentMcp } from './localAgent.ts'
+import { handleGeminiCloudMcp } from './geminiCloudMcp.ts'
+import { geminiCloudWorkerFor } from './geminiCloudRuns.ts'
+import http from 'node:http'
+import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import express from 'express'
+import { eq, inArray } from 'drizzle-orm'
+import { toNodeHandler, fromNodeHeaders } from 'better-auth/node'
+import { oAuthDiscoveryMetadata } from 'better-auth/plugins'
+import { WebSocketServer, WebSocket } from 'ws'
+import { GuideLimitError, PageLimitError, store } from './store.ts'
+import { parseGuide } from '../shared/guides.ts'
+import { getImage } from './previews.ts'
+import * as actions from './actions.ts'
+import { liveActivitiesRouter, logLiveActivityRequests, startLiveActivityDelivery } from './liveActivities.ts'
+import { onCanvasEvent } from './events.ts'
+import * as commentNotifications from './commentNotifications.ts'
+import { notificationsRouter } from './notifications.ts'
+import * as webhooks from './webhooks.ts'
+import { webhooksRouter } from './webhookRoutes.ts'
+import {
+  canEditCanvas,
+  canManageCanvas,
+  canvasRole,
+  hasDurableCanvasAccess,
+  isAdmin,
+  roomMessageNeeds,
+} from './access.ts'
+import { isLinkAccess, roleAllows, type CanvasRole } from '../shared/canvasRole.ts'
+import { auth, initAuth, syncAdmins, getUserName, loginProvidersConfig } from './auth.ts'
+import { adminRouter } from './admin.ts'
+import { communityRouter, parseListing, publishableFrames } from './community.ts'
+import { automationsRouter, startScheduler } from './automations.ts'
+import { integrationsRouter, relayDesktopCallback } from './integrations.ts'
+import { extensions } from './extensions.ts'
+import * as workspaces from './workspaces.ts'
+import * as billing from './billing.ts'
+import * as demo from './demo.ts'
+import { db, initDb } from './db/index.ts'
+import * as authSchema from './db/auth-schema.ts'
+import * as persist from './db/persist.ts'
+import { handleMcpRequest } from './mcp.ts'
+import {
+  getAsset,
+  reconcileAssetRefs,
+  beginTicketUpload,
+  endTicketUpload,
+  createAsset,
+  MAX_ASSET_BYTES,
+} from './assets.ts'
+import * as ingest from './ingest.ts'
+import * as agentKeys from './agentKeys.ts'
+import * as backgrounds from './backgrounds.ts'
+import * as storage from './storage.ts'
+import * as github from './github.ts'
+import * as githubApp from './githubApp.ts'
+import { seed, ensureLocalUser } from './seed.ts'
+import { DEFAULT_SESSION, DEFAULT_USER } from '../shared/auth.ts'
+import * as allowance from './allowance.ts'
+import * as modelAccounts from './modelAccounts.ts'
+import { getLocalAgentPreference, saveLocalAgentPreference } from './localAgentPreferences.ts'
+import { serverTierInfo } from './agentModel.ts'
+import { imageModelAvailability, serverImageGenEnabled } from './imageGen.ts'
+import { setImagePref } from './imagePrefs.ts'
+import { AGENT_MODELS } from './openaiAgent.ts'
+import { modelCatalogFor } from './modelCatalog.ts'
+import { ANTHROPIC_MODELS, GEMINI_MODELS, OPENROUTER_MODELS } from '../shared/modelMenu.ts'
+import type { ModelOption } from '../shared/modelMenu.ts'
+import { mentionedRole } from '../shared/agents.ts'
+import { activeAgentTasks } from '../shared/agentActivity.ts'
+import { colorFor } from '../shared/types.ts'
+import { isPeerViewport } from '../shared/viewport.ts'
+import type { Canvas, ClientMessage, Presence, ServerMessage } from '../shared/types.ts'
+
+const PORT = env.PORT
+
+/* Identifies the client bundle this process serves. Hashing dist/index.html
+   works because Vite writes hashed asset names into it — any frontend change
+   changes the hash, while server-only deploys and plain restarts do not.
+   Clients compare it across reconnects to know their loaded bundle is stale. */
+const BUILD_ID = (() => {
+  try {
+    return createHash('sha1')
+      .update(readFileSync(path.join(process.cwd(), 'dist', 'index.html')))
+      .digest('hex')
+      .slice(0, 12)
+  } catch {
+    return 'dev'
+  }
+})()
+
+/* boot: connect the DB, hydrate memory, import pre-DB store.json once */
+await initDb()
+await backgrounds.initBackgrounds()
+initAuth()
+await syncAdmins() // ADMIN_EMAILS -> user.role, for accounts that already exist
+/* DISABLE_AUTH: the local identity needs a real row for name lookups */
+if (env.DISABLE_AUTH) await ensureLocalUser()
+let data = await persist.hydrate()
+if (data.canvases.length === 0 && (await persist.importLegacyJson())) {
+  data = await persist.hydrate()
+}
+store.init(data.canvases)
+await workspaces.hydrateWorkspaces() // before the first request: canvasRole reads membership
+await webhooks.hydrateWebhooks()
+billing.reportBillingConfig()
+actions.hydrateLogs(data)
+seed()
+
+/* Never-attempted queued cards get their first pickup after boot. Hydration
+   marks interrupted claimed cards as failed, so they are excluded until a
+   human explicitly retries them. */
+{
+  const pending = [...data.tasks.entries()]
+    .filter(([, list]) => list.some((t) => t.queuedBy && !t.agentName && !t.endedAt))
+    .map(([canvasId]) => canvasId)
+  pending.forEach((canvasId, i) => {
+    setTimeout(
+      () => {
+        import('./resident.ts').then((r) => r.onFeedback(canvasId)).catch(() => {})
+      },
+      5_000 + i * 30_000,
+    )
+  })
+  if (pending.length) console.log(`[resident] ${pending.length} canvas(es) with new queued cards — starting after boot`)
+}
+
+/* asset bookkeeping (no deletion): every upload records its canvas, and
+   asset_refs tracks which frames reference which assets — kept in sync on
+   every durable frame write, rebuilt here from the frames hydrate just
+   loaded. Nothing is ever deleted; asset_refs is the ledger any future
+   cleanup would be built on. */
+{
+  const frames = data.canvases.flatMap((c) => c.frames)
+  reconcileAssetRefs(frames)
+    .then((n) => n && console.log(`[assets] reconciled ${n} asset ref(s)`))
+    .catch((e) => console.error('[assets] reconcile failed', e))
+}
+
+/* One stray rejection must never take down the multiplayer server: Node's
+   default is to exit, which turned a single aborted analytics upload into
+   sitewide 502s (2026-08-20). Log loudly instead — a real bug shows up here
+   as a stack trace, not an outage. */
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandled-rejection]', reason)
+})
+
+/* flush debounced frame writes before the process dies — with a hard-exit
+   timeout so a wedged DB can never keep the process (and the port) alive */
+for (const sig of ['SIGINT', 'SIGTERM'] as const) {
+  process.once(sig, () => {
+    setTimeout(() => process.exit(0), 1500).unref()
+    persist
+      .flush((id) => store.getFrame(id))
+      .catch((err) => console.error('flush on shutdown failed', err))
+      .finally(() => process.exit(0))
+  })
+}
+
+/* ------------------------------------------------- realtime rooms */
+
+interface Conn {
+  ws: WebSocket
+  canvasId: string
+  /** the session's user — the role is re-read from it on every message, so
+   *  a link changed mid-visit takes effect without a reconnect */
+  userId: string
+  presence: Presence
+  /** an admin viewing as someone else: receives updates, emits nothing.
+   *  Showing their borrowed identity as a live cursor would tell the room
+   *  the owner is here when they aren't. */
+  silent?: boolean
+}
+
+const conns = new Map<WebSocket, Conn>()
+
+function room(canvasId: string): Conn[] {
+  return [...conns.values()].filter((c) => c.canvasId === canvasId)
+}
+
+/** The live role of one room connection (null once access is gone). */
+function connRole(conn: Conn): CanvasRole | null {
+  const canvas = store.getCanvas(conn.canvasId)
+  return canvas ? canvasRole(conn.userId, canvas) : null
+}
+
+/* After a share-link change: everyone in the room learns their new role (the
+   editor goes read-only, or back), and anyone left with no access at all is
+   disconnected rather than kept on the live feed. */
+function refreshRoomRoles(canvasId: string) {
+  for (const conn of room(canvasId)) {
+    const role = connRole(conn)
+    if (!role) {
+      conn.ws.close(4403, 'no access')
+      continue
+    }
+    send(conn.ws, { type: 'role', role })
+    /* the room now drops this visitor's editing messages, including the one
+       that would clear their badge, so clear it for them */
+    if (!roleAllows(role, 'edit') && conn.presence.activeFrameId) {
+      conn.presence.activeFrameId = null
+      broadcast(canvasId, { type: 'editing', clientId: conn.presence.clientId, frameId: null }, conn.presence.clientId)
+    }
+  }
+}
+
+function send(ws: WebSocket, msg: ServerMessage) {
+  if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg))
+}
+
+function broadcast(canvasId: string, msg: ServerMessage, excludeClientId?: string) {
+  for (const c of room(canvasId)) {
+    if (excludeClientId && c.presence.clientId === excludeClientId) continue
+    send(c.ws, msg)
+  }
+}
+
+/* Agents show up in presence while they are actively calling tools. */
+interface AgentPresence extends Presence {
+  lastSeen: number
+}
+const agentPresences = new Map<string, Map<string, AgentPresence>>() // canvasId -> name -> presence
+
+function agentTouch(
+  canvasId: string,
+  agentName: string,
+  frameId?: string | null,
+  status?: string | null,
+  owner?: string,
+) {
+  let byName = agentPresences.get(canvasId)
+  if (!byName) agentPresences.set(canvasId, (byName = new Map()))
+  let p = byName.get(agentName)
+  const isNew = !p
+  if (!p) {
+    p = {
+      clientId: `agent:${agentName}`,
+      name: agentName,
+      color: colorFor(agentName),
+      kind: 'agent',
+      owner,
+      lastSeen: Date.now(),
+      activeFrameId: frameId ?? null,
+    }
+    byName.set(agentName, p)
+  }
+  p.lastSeen = Date.now()
+  if (owner && !p.owner) p.owner = owner
+  if (frameId !== undefined) p.activeFrameId = frameId
+  let statusChanged = false
+  if (status !== undefined) {
+    const next = status?.trim() || undefined
+    if (p.status !== next) {
+      p.status = next
+      statusChanged = true
+    }
+  }
+  if (isNew) {
+    broadcast(canvasId, { type: 'presence:join', presence: p })
+  } else {
+    if (frameId !== undefined) {
+      broadcast(canvasId, { type: 'editing', clientId: p.clientId, frameId: p.activeFrameId ?? null })
+    }
+    if (statusChanged) {
+      broadcast(canvasId, { type: 'status', clientId: p.clientId, status: p.status ?? null })
+    }
+  }
+}
+
+setInterval(() => {
+  const now = Date.now()
+  for (const [canvasId, byName] of agentPresences) {
+    for (const [name, p] of byName) {
+      /* an agent with a posted status is likely thinking between tool calls —
+         keep it (and its status) on screen longer before expiring */
+      if (now - p.lastSeen > (p.status ? 60_000 : 20_000)) {
+        byName.delete(name)
+        broadcast(canvasId, { type: 'presence:leave', clientId: p.clientId })
+        actions.endAgentTasks(canvasId, p.name) // an agent that went silent is no longer "working on" anything
+      }
+    }
+  }
+}, 5000)
+
+actions.wire(broadcast, agentTouch)
+/* after the room has been told: email for the people who were not in it */
+onCanvasEvent(commentNotifications.onCanvasEvent)
+onCanvasEvent(webhooks.onCanvasEvent)
+
+/* ------------------------------------------------- http api */
+
+const app = express()
+
+/* Railway/Fly terminate TLS in front of us; trust the proxy so req.protocol
+   and secure cookies see https, and OAuth metadata echoes the right origin */
+app.set('trust proxy', 1)
+
+app.get('/healthz', (_req, res) => res.json({ ok: true }))
+
+/* ------------------------------------------------------------------ */
+/* PostHog relay: the client sends analytics + session-replay traffic  */
+/* to this origin (/relay/...) and we forward it, so ad blockers that  */
+/* match PostHog's domains never see a request to block. Mounted       */
+/* before express.json — replay payloads are compressed binary and     */
+/* must pass through untouched. Cookies are stripped: our auth session */
+/* must not leak to a third party.                                     */
+/* ------------------------------------------------------------------ */
+
+const PH_INGEST = env.POSTHOG_INGEST_HOST
+const PH_ASSETS = env.POSTHOG_ASSETS_HOST
+const PH_DROP_HEADERS = new Set(['host', 'connection', 'cookie', 'content-length', 'accept-encoding'])
+
+app.use('/relay', async (req, res) => {
+  /* /static/* is PostHog's CDN (lazy bundles, toolbar); everything else
+     (/e, /s, /flags, /array) is the ingestion API */
+  const upstream = req.url.startsWith('/static/') ? PH_ASSETS : PH_INGEST
+
+  const headers: Record<string, string> = {}
+  for (const [k, v] of Object.entries(req.headers)) {
+    if (typeof v === 'string' && !PH_DROP_HEADERS.has(k)) headers[k] = v
+  }
+  /* keep the incoming XFF chain — its first entry is the real client IP
+     and PostHog geolocates from it. Overwriting with req.ip would send
+     Railway's edge-PoP address instead (trust proxy only strips one hop).
+     Fall back to req.ip when there is no chain (local dev). */
+  if (!headers['x-forwarded-for'] && req.ip) headers['x-forwarded-for'] = req.ip
+
+  try {
+    /* the body read must sit inside the try: navigating away mid-upload
+       aborts big session-replay POSTs, which rejects this stream — left
+       uncaught, that single abort would take down the whole process */
+    const chunks: Buffer[] = []
+    for await (const chunk of req) chunks.push(chunk as Buffer)
+    const body = Buffer.concat(chunks)
+
+    const r = await fetch(upstream + req.url, {
+      method: req.method,
+      headers,
+      body: body.length ? body : undefined,
+      signal: AbortSignal.timeout(15_000),
+    })
+    /* accept-encoding was stripped, so the body is identity — but drop
+       length/encoding headers anyway and let Express size the response */
+    res.status(r.status)
+    r.headers.forEach((v, k) => {
+      if (k !== 'content-length' && k !== 'content-encoding' && k !== 'transfer-encoding' && k !== 'connection')
+        res.set(k, v)
+    })
+    res.send(Buffer.from(await r.arrayBuffer()))
+  } catch {
+    /* analytics must never surface errors to the app */
+    if (!res.headersSent) res.status(502)
+    res.end()
+  }
+})
+
+/* ------------------------------------------------------------------ */
+/* Public frame images: /i/<frameId>.png|jpg — shareable/hotlinkable   */
+/* (og:image etc). Unauthenticated by the same unguessable-id logic as */
+/* canvas share links; renders the CURRENT frame, so embedded images   */
+/* stay up to date as the design iterates. Caching, rate limiting and  */
+/* render dispatch live in previews.ts — this route is HTTP only.      */
+/* ------------------------------------------------------------------ */
+
+app.get('/i/:id.:ext', async (req, res) => {
+  const { id, ext } = req.params as { id: string; ext: string }
+  if (ext !== 'png' && ext !== 'jpg') return res.status(404).end()
+  const frame = store.getFrame(id)
+  if (!frame) return res.status(404).end()
+
+  let result: Awaited<ReturnType<typeof getImage>>
+  try {
+    result = await getImage(frame, {
+      ext,
+      scale: req.query.scale === '2' ? 2 : 1,
+      quality: Math.min(100, Math.max(1, Number(req.query.quality) || 90)),
+      /* ?preview — the dashboard-card variant; see previews.ts */
+      preview: req.query.preview !== undefined,
+      ip: req.ip ?? 'unknown',
+      /* the render limit targets anonymous hotlink abuse — a logged-in user
+         loading a dashboard of many canvases shouldn't hit it (and behind
+         the Railway proxy many users can share one req.ip). Only called
+         when the budget is exhausted, so cached serves stay auth-free. */
+      isAuthenticated: async () =>
+        !!(await auth.api.getSession({ headers: fromNodeHeaders(req.headers) }).catch(() => null)),
+    })
+  } catch (e) {
+    return res.status(500).json({ error: e instanceof Error ? e.message : 'render failed' })
+  }
+  if (result.status === 'rate-limited') {
+    res.set('Retry-After', '60')
+    return res.status(429).json({ error: 'render rate limit — cached URLs are unaffected' })
+  }
+  const { buf } = result
+
+  res.set('Content-Type', ext === 'jpg' ? 'image/jpeg' : 'image/png')
+  res.set('Cache-Control', 'public, max-age=60')
+  if (req.query.download !== undefined) {
+    const safe = frame.name.replace(/[^\w\- ]+/g, '').trim() || 'frame'
+    res.set('Content-Disposition', `attachment; filename="${safe}.${ext}"`)
+  }
+  res.send(buf)
+})
+
+/* ------------------------------------------------------------------ */
+/* Uploaded assets: /a/<assetId>.<ext> — written once by the upload_asset */
+/* MCP tool, immutable thereafter, so far-future caching is safe. Public  */
+/* by the same unguessable-id logic as /i/ (frame HTML embedding these    */
+/* URLs renders for anyone who can see the canvas).                       */
+/* ------------------------------------------------------------------ */
+
+app.get('/a/:id.:ext', async (req, res) => {
+  const { id, ext } = req.params as { id: string; ext: string }
+  try {
+    const found = await getAsset(id)
+    if (!found || found.meta.ext !== ext) return res.status(404).end()
+    res.set('Content-Type', found.meta.mime)
+    res.set('Cache-Control', 'public, max-age=31536000, immutable')
+    res.set('X-Content-Type-Options', 'nosniff')
+    /* svg can script when opened as a document — neuter it; <img> embeds
+       are unaffected */
+    if (found.meta.mime === 'image/svg+xml')
+      res.set('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'")
+    if (req.query.download !== undefined) res.set('Content-Disposition', `attachment; filename="${id}.${ext}"`)
+    res.send(found.buf)
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : 'asset fetch failed' })
+  }
+})
+
+/* Curated background library (server/backgrounds.ts): /bg/<id>.webp and  */
+/* /bg/<id>-t.webp straight from object storage. Public and immutable —  */
+/* the catalog is checked in, the bytes are put there by the import      */
+/* script and never rewritten under the same id.                         */
+app.get('/bg/:file', async (req, res) => {
+  const key = backgrounds.keyForFile(req.params.file)
+  if (!key) return res.status(404).end()
+  try {
+    const buf = await storage.getObject(key)
+    if (!buf) return res.status(404).end()
+    res.set('Content-Type', 'image/webp')
+    res.set('Cache-Control', 'public, max-age=31536000, immutable')
+    res.set('X-Content-Type-Options', 'nosniff')
+    res.send(buf)
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : 'background fetch failed' })
+  }
+})
+
+/* ------------------------------------------------------------------ */
+/* One-time asset uploads: the upload_asset MCP tool mints a ticket and */
+/* the agent curls the file here (curl -T file /u/<token>), so bytes    */
+/* go disk -> bopixi without ever passing through the model. Mounted      */
+/* before express.json — the body IS the file. The token is the         */
+/* capability: unguessable, single-use, 15-minute TTL.                  */
+/* ------------------------------------------------------------------ */
+
+app.put('/u/:token', async (req, res) => {
+  const { token } = req.params
+  const ticket = beginTicketUpload(token)
+  if (!ticket)
+    return res
+      .status(410)
+      .json({ error: 'invalid, expired or already-used upload ticket — request a new one via the upload_asset tool' })
+  let success = false
+  try {
+    /* on any early rejection, destroy the request stream — otherwise curl
+       keeps sending a body nobody reads and the connection deadlocks */
+    if (Number(req.headers['content-length'] || 0) > MAX_ASSET_BYTES) {
+      res.status(413).json({ error: 'file exceeds the 5 MB limit' })
+      req.destroy()
+      return
+    }
+    const chunks: Buffer[] = []
+    let total = 0
+    for await (const chunk of req) {
+      total += (chunk as Buffer).length
+      if (total > MAX_ASSET_BYTES) {
+        res.status(413).json({ error: 'file exceeds the 5 MB limit' })
+        req.destroy()
+        return
+      }
+      chunks.push(chunk as Buffer)
+    }
+    const asset = await createAsset(Buffer.concat(chunks), {
+      canvasId: ticket.canvasId,
+      ownerId: ticket.ownerId,
+      uploadedBy: ticket.uploadedBy,
+    })
+    success = true
+    const url = `${env.BETTER_AUTH_URL}/a/${asset.id}.${asset.ext}`
+    res.json({
+      ok: true,
+      url,
+      mime: asset.mime,
+      size_bytes: asset.size,
+      usage: `<img src="${url}" alt="">`,
+      note: 'Permanent public URL — reference it in frame HTML.',
+    })
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : 'upload failed' })
+  } finally {
+    endTicketUpload(token, success)
+  }
+})
+
+/* better-auth handles /api/auth/* — mounted before express.json (it reads
+   the raw body itself) and before the session gate below. Being mounted
+   earlier means it also escapes the read-only rule on /api, so an admin
+   who is viewing as someone else is filtered here instead:
+     - the MCP OAuth flow authorises off the browser session, so it would
+       mint a long-lived agent token belonging to the person being viewed,
+       outliving the 15-minute view-as session entirely;
+     - every other write (update-user, change-email, revoke-sessions, …)
+       would edit the account of the person being viewed while the banner
+       says "read only".
+   An allowlist, not a blocklist: whatever endpoints a future better-auth
+   plugin adds are refused by default rather than discovered later. */
+const MCP_OAUTH_PATHS = /^\/api\/auth\/(mcp\/|oauth2\/(authorize|consent|token))/
+const VIEW_AS_ALLOWED = /^\/api\/auth\/(sign-out|admin\/stop-impersonating)$/
+
+/* DISABLE_AUTH: the session every gate falls back to. The SPA probes
+   /api/auth/get-session on boot, so that probe in particular must answer as
+   the local user — otherwise the app renders its sign-in screen even though
+   the API would accept it. */
+type ResolvedSession = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>
+function localSession(): ResolvedSession {
+  return { session: DEFAULT_SESSION, user: DEFAULT_USER } as unknown as ResolvedSession
+}
+if (env.DISABLE_AUTH) {
+  app.get('/api/auth/get-session', async (req, res, next) => {
+    const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) }).catch(() => null)
+    if (session) return next()
+    res.json(localSession())
+  })
+}
+
+app.all('/api/auth/*', async (req, res, next) => {
+  const restricted = MCP_OAUTH_PATHS.test(req.path) || (req.method !== 'GET' && !VIEW_AS_ALLOWED.test(req.path))
+  if (restricted) {
+    const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) }).catch(() => null)
+    if (session && (session.session as { impersonatedBy?: string | null }).impersonatedBy) {
+      return res.status(403).json({ error: 'viewing as another user — read only' })
+    }
+  }
+  toNodeHandler(auth)(req, res).catch(next)
+})
+
+/* Stripe webhooks: the signature covers the exact bytes, so this route takes
+   the raw body and sits ahead of the JSON parser; no session — Stripe is the
+   caller. Everything it does is in server/workspaces.ts. */
+app.post('/stripe/webhook', express.raw({ type: '*/*', limit: '1mb' }), (req, res) => {
+  workspaces.handleStripeWebhook(req, res).catch((err) => {
+    console.error('[billing] webhook crashed', err)
+    if (!res.headersSent) res.status(500).json({ error: 'webhook handling failed' })
+  })
+})
+
+for (const extension of extensions) {
+  if (extension.webhookRouter) app.use(`/webhooks/${extension.id}`, extension.webhookRouter())
+}
+
+app.use(express.json({ limit: '10mb' }))
+app.all('/gemini-cloud/mcp/:id', (req, res, next) => {
+  handleGeminiCloudMcp(req, res).catch(next)
+})
+app.all('/local-agent/mcp/:id', (req, res, next) => {
+  handleLocalAgentMcp(req, res).catch(next)
+})
+
+/* Where a brand-new account lands: the canvas signup created for it
+   (server/auth.ts databaseHooks), where the demo agent is waiting to
+   perform. better-auth sends new Google / Microsoft / SSO users here as
+   their newUserCallbackURL and the email form comes here too, so every
+   signup path shares one landing. Signed out, or without a canvas of their
+   own any more, the dashboard will do. Ahead of the /api session guard:
+   a browser arrives here, so a missing session is a redirect, not a 401. */
+app.get(FIRST_CANVAS_PATH, async (req, res) => {
+  const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) }).catch(() => null)
+  /* ?connect=1 rides along: the lifecycle emails link here with a static URL
+     and the canvas page opens the Connect AI modal on it. Signed out (an
+     email opened in a fresh browser), the login page gets this URL as its
+     redirect_to, so the destination survives the sign-in. The bare path
+     keeps sending a signed-out browser to the dashboard as before. */
+  const connect = req.query.connect === '1' ? '?connect=1' : ''
+  if (!session)
+    return res.redirect(connect ? `/?redirect_to=${encodeURIComponent(`${FIRST_CANVAS_PATH}${connect}`)}` : '/')
+  /* ?signup=<method>: a provider sign-in that just created this account
+     (src/pages/AuthPage.tsx). It rides on to wherever the account lands so
+     the app can report the signup with its method, then drops it. */
+  const method = typeof req.query[SIGNUP_PARAM] === 'string' ? parseSignupMethod(req.query[SIGNUP_PARAM]) : null
+  const landing = new URLSearchParams(connect.slice(1))
+  if (method) landing.set(SIGNUP_PARAM, method)
+  const query = landing.size ? `?${landing}` : ''
+  const canvas = store.firstCanvasOf(session.user.id)
+  res.redirect(canvas ? `/c/${canvas.id}${query}` : `/${query}`)
+})
+
+/* Public: does an account exist for this email? Drives the login page's
+   "no account found — sign up instead" prompt. Existence is already
+   observable through signup's "user already exists" error, so this
+   endpoint reveals nothing new. */
+app.post('/api/account-exists', async (req, res) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : ''
+  if (!email) return res.status(400).json({ error: 'email required' })
+  const [row] = await db
+    .select({ id: authSchema.user.id })
+    .from(authSchema.user)
+    .where(eq(authSchema.user.email, email))
+  res.json({ exists: !!row })
+})
+
+/* Public: is SSO configured, and what should the login button say? Static
+   build shared across self-hosted deploys can't know this at build time —
+   see server/auth.ts loginProvidersConfig for what's safe to expose here. */
+app.get('/api/oidc-config', (req, res) => {
+  res.json(loginProvidersConfig())
+})
+
+/* ------------------------------------------------------------------ */
+/* Design sync ingest: the bopixi-sync snippet on a foreign origin posts */
+/* DOM snapshots here. The canvas-scoped write-only secret in the path */
+/* is the whole credential (no cookies), so this stays outside the     */
+/* /api session gate and answers its own CORS preflight. The route-    */
+/* level parser also accepts text/plain — that's what sendBeacon      */
+/* sends when a page unloads mid-capture.                              */
+/* ------------------------------------------------------------------ */
+
+app.options('/ingest/:key', (_req, res) => {
+  ingest.setIngestCors(res)
+  res.status(204).end()
+})
+
+app.post('/ingest/:key', express.json({ limit: '10mb', type: () => true }), (req, res) => {
+  ingest.handleIngest(req, res).catch((err) => {
+    console.error('[ingest] failed', err)
+    if (!res.headersSent) res.status(500).json({ error: 'sync failed' })
+  })
+})
+
+/* everything else under /api requires a logged-in user; the session's user
+   is authoritative for names — clients don't get to pick who they are */
+interface SessionUser {
+  id: string
+  name: string
+  email: string
+  role?: string | null
+}
+declare global {
+  namespace Express {
+    interface Request {
+      user?: SessionUser
+      /** admin's user id when this session is a "view as" — see /api/admin */
+      impersonatedBy?: string
+    }
+  }
+}
+/* an OAuth redirect begun in the desktop app lands in the system browser,
+   whose session (if any) is not the app's: relay it back to the app before
+   the gate looks at that session (shared/desktopConnect.ts) */
+app.get('/api/integrations/:provider/callback', relayDesktopCallback)
+app.use('/api/live-activities', logLiveActivityRequests)
+app.use('/api', async (req, res, next) => {
+  try {
+    const session =
+      (await auth.api.getSession({ headers: fromNodeHeaders(req.headers) })) ??
+      (env.DISABLE_AUTH ? localSession() : null)
+    if (!session) return res.status(401).json({ error: 'unauthorized' })
+    req.user = session.user
+    req.impersonatedBy = (session.session as { impersonatedBy?: string | null }).impersonatedBy ?? undefined
+    /* Viewing as someone else is read-only, full stop. Every bopixi mutation is
+       a non-GET REST call — the websocket after `join` carries only cursor,
+       editing and frame:drag — so this single rule covers the whole surface.
+       better-auth's own routes are mounted earlier (/api/auth/*), so signing
+       out and stop-impersonating are unaffected. */
+    if (req.impersonatedBy && req.method !== 'GET') {
+      return res.status(403).json({ error: 'viewing as another user — read only' })
+    }
+    next()
+  } catch (err) {
+    next(err)
+  }
+})
+
+app.get('/api/me', async (req, res) => {
+  const { id, name, email } = req.user!
+  res.json({
+    id,
+    name,
+    email,
+    admin: isAdmin(req.user),
+    /* 'team' while a member of a live paid workspace — the account menu's plan line */
+    plan: workspaces.planFor(id),
+    /* the SPA cannot infer this: impersonation swaps the session cookie
+       outright, so everything else on this response describes the person
+       being viewed, not the admin doing the viewing */
+    impersonating: req.impersonatedBy ? { byName: (await getUserName(req.impersonatedBy)) ?? 'an admin' } : undefined,
+  })
+})
+
+/* Resolve the application from the consent code itself, never a client name or
+   id supplied by the page. Only the account authorizing the code may use it. */
+async function mcpConsent(code: string, userId: string) {
+  const [request] = await db.select().from(authSchema.verification).where(eq(authSchema.verification.identifier, code))
+  if (!request || request.expiresAt <= new Date()) return null
+  let value: { userId?: string; clientId?: string; requireConsent?: boolean } | null
+  try {
+    value = JSON.parse(request.value)
+  } catch {
+    return null
+  }
+  if (!value || value.userId !== userId || value.requireConsent !== true || typeof value.clientId !== 'string')
+    return null
+  const [client] = await db
+    .select()
+    .from(authSchema.oauthApplication)
+    .where(eq(authSchema.oauthApplication.clientId, value.clientId))
+  return client && !client.disabled ? { name: client.name } : null
+}
+
+app.get('/api/mcp-consent/:code', async (req, res, next) => {
+  try {
+    res.set('Cache-Control', 'no-store')
+    const client = await mcpConsent(req.params.code!, req.user!.id)
+    if (!client)
+      return res.status(404).json({ error: 'This connection request has expired. Start again from your agent.' })
+    res.json(client)
+  } catch (error) {
+    next(error)
+  }
+})
+
+app.post('/api/mcp-consent/:code', async (req, res, next) => {
+  try {
+    res.set('Cache-Control', 'no-store')
+    if (typeof req.body?.accept !== 'boolean') return res.status(400).json({ error: 'Choose whether to connect.' })
+    if (!(await mcpConsent(req.params.code!, req.user!.id)))
+      return res.status(404).json({ error: 'This connection request has expired. Start again from your agent.' })
+    const result = await auth.api.oAuthConsent({
+      headers: fromNodeHeaders(req.headers),
+      body: { accept: req.body.accept, consent_code: req.params.code! },
+    })
+    res.json(result)
+  } catch (error) {
+    next(error)
+  }
+})
+
+/* Canvas access on the REST surface: resolve the canvas (or the frame's
+   canvas) and check the caller's role against what the route needs before
+   touching anything — 'view' for reads, 'comment' for comment threads,
+   'edit' for every other write. `need` is required on purpose: a route
+   that forgets it does not compile, rather than defaulting open.
+   Both helpers write the error response themselves and return null. */
+/** The signed-in person as the actor of a REST write. The name is the
+ *  account's, never the body's; the body's `actor.clientId` is kept, since it
+ *  is only the browser tab's presence token, which lets the room tell that
+ *  tab's own writes from everyone else's (the remote-edit flash). */
+function userActor(req: express.Request) {
+  const clientId = req.body?.actor?.clientId
+  return actions.resolveActor({
+    name: req.user!.name,
+    kind: 'user',
+    clientId: typeof clientId === 'string' ? clientId.slice(0, 64) : undefined,
+  })
+}
+
+function requireCanvas(req: express.Request, res: express.Response, canvasId: string, need: CanvasRole) {
+  const c = store.getCanvas(canvasId)
+  if (!c) {
+    res.status(404).json({ error: 'not found' })
+    return null
+  }
+  return checkRole(req, res, c, need) ? c : null
+}
+
+function checkRole(req: express.Request, res: express.Response, canvas: Canvas, need: CanvasRole): boolean {
+  const role = canvasRole(req.user!.id, canvas)
+  if (!role) {
+    res.status(403).json({ error: 'this canvas is private — ask the owner for access' })
+    return false
+  }
+  if (!roleAllows(role, need)) {
+    res.status(403).json({ error: ROLE_DENIED[need], role })
+    return false
+  }
+  return true
+}
+
+const ROLE_DENIED: Record<CanvasRole, string> = {
+  view: 'this canvas is private — ask the owner for access',
+  comment: 'you can view this canvas but not comment — ask the owner for access',
+  edit: 'you can view this canvas but not edit it — ask the owner for edit access',
+}
+
+/* An @mention hands the resident agent a command that changes frames, so a
+   comment-only visitor may comment but not mention an agent: otherwise the
+   agent would make the edits the link withholds. Answers the 403 itself. */
+function refuseAgentMention(req: express.Request, res: express.Response, canvasId: string, text: string): boolean {
+  const canvas = store.getCanvas(canvasId)
+  if (!mentionedRole(text) || (canvas && canEditCanvas(req.user!.id, canvas))) return false
+  res.status(403).json({ error: 'asking an agent to change the canvas needs edit access' })
+  return true
+}
+
+function requireFrame(
+  req: express.Request,
+  res: express.Response,
+  frameId: string,
+  need: CanvasRole,
+  expectedUpdatedAt?: unknown,
+) {
+  const frame = store.getFrame(frameId)
+  if (!frame) {
+    res.status(404).json({ error: 'frame not found' })
+    return null
+  }
+  const c = store.getCanvas(frame.canvasId)
+  if (!c) {
+    res.status(403).json({ error: 'this canvas is private — ask the owner for access' })
+    return null
+  }
+  if (!checkRole(req, res, c, need)) return null
+  if (expectedUpdatedAt !== undefined) {
+    if (typeof expectedUpdatedAt !== 'number' || !Number.isSafeInteger(expectedUpdatedAt) || expectedUpdatedAt < 0) {
+      res.status(400).json({ error: 'expectedUpdatedAt must be a nonnegative integer' })
+      return null
+    }
+    // PATCH and DELETE mutate the store synchronously after this check.
+    if (frame.updatedAt !== expectedUpdatedAt) {
+      res.status(409).json({ error: 'The frame changed while you were editing. Please try again.', frame })
+      return null
+    }
+  }
+  return frame
+}
+
+app.use('/api/local-agent', localAgentRouter)
+app.use('/api/notifications', notificationsRouter)
+app.use('/api/webhooks', webhooksRouter)
+app.use('/api/admin', adminRouter)
+app.use('/api/community', communityRouter)
+app.use('/api/automations', automationsRouter)
+app.use('/api/integrations', integrationsRouter)
+app.use('/api/workspaces', workspaces.workspacesRouter)
+app.use('/api/live-activities', liveActivitiesRouter)
+startLiveActivityDelivery()
+app.use('/api/billing', billing.billingRouter)
+
+/* free-tier meter for the resident team: {used, limit, connected, byoModel} */
+app.get('/api/agent-allowance', (req, res) => {
+  allowance
+    .getAllowance(req.user!.id)
+    .then((a) => res.json(a))
+    .catch(() => res.status(500).json({ error: 'allowance unavailable' }))
+})
+
+/* ---- the user's own model account: what keeps the Bopixi Agent running once
+   the free tasks are gone. Tokens live server-side and are never returned. */
+
+/* one curated menu per account kind, with the vision flag the picker renders;
+   the pre-roster providers all see images */
+const MODEL_MENUS: Record<modelAccounts.AccountKind, ModelOption[]> = {
+  chatgpt: AGENT_MODELS.map((m) => ({ ...m, vision: true })),
+  'openai-key': AGENT_MODELS.map((m) => ({ ...m, vision: true })),
+  'anthropic-key': ANTHROPIC_MODELS,
+  'openrouter-key': OPENROUTER_MODELS,
+  'gemini-key': GEMINI_MODELS,
+}
+
+/* Every route that returns an account status returns the SAME shape: the
+   client re-renders straight from the response, so dropping the menus on
+   a PATCH would collapse the picker until the next reload. */
+function accountView(status: modelAccounts.AccountStatus) {
+  return { ...status, chatgptEnabled: modelAccounts.chatgptConnectEnabled(), menus: MODEL_MENUS }
+}
+
+app.get('/api/model-account', (req, res) => {
+  modelAccounts
+    .getStatus(req.user!.id)
+    .then((status) => res.json(accountView(status)))
+    .catch(() => res.status(500).json({ error: 'account status unavailable' }))
+})
+
+/* the connected provider's live catalog, merged over its curated menu — asked
+   for when a picker opens, so a model released yesterday is already on it */
+app.get('/api/model-account/models', async (req, res) => {
+  try {
+    const account = await modelAccounts.getAccount(req.user!.id)
+    if (!account) return res.json({ models: [], live: false })
+    /* a ChatGPT token may have lapsed since the last run; a refresh that
+       fails leaves the stale token to be refused, which the catalog reports
+       as "reconnect" rather than this route failing outright */
+    const live = await Promise.race([
+      modelAccounts.withFreshToken(account).catch(() => account),
+      /* the refresh has no timeout of its own; a stalled token endpoint
+         must not hold the picker past the catalog's own budget */
+      new Promise<typeof account>((resolve) => setTimeout(resolve, 8_000, account).unref()),
+    ])
+    res.json(await modelCatalogFor(live, MODEL_MENUS[account.kind]))
+  } catch {
+    res.status(500).json({ error: 'models unavailable' })
+  }
+})
+
+/* which model tier the connected account runs on */
+/* which model tier the connected account runs on, and (OpenAI kinds) how
+   hard it thinks — one field per request, the status comes back either way */
+app.patch('/api/model-account', async (req, res) => {
+  try {
+    const { model, effort } = (req.body ?? {}) as { model?: unknown; effort?: unknown }
+    const status =
+      effort !== undefined
+        ? await modelAccounts.setAccountEffort(req.user!.id, String(effort))
+        : await modelAccounts.setAccountModel(req.user!.id, String(model ?? ''))
+    res.json(accountView(status))
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : 'could not change the model' })
+  }
+})
+
+/* OpenAI's only registered redirect is a loopback URL, so the browser's
+   callback is reachable by us exactly when the browser is on this machine.
+   A forwarded request came through a proxy and is by definition not. */
+function isSameMachine(req: express.Request): boolean {
+  if (req.headers['x-forwarded-for'] || req.headers['forwarded']) return false
+  const ip = req.socket.remoteAddress ?? ''
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1'
+}
+
+/* step 1 of the ChatGPT flow: hand back the OpenAI authorize URL to open.
+   `catching` tells the client we will pick the redirect up ourselves, so it
+   can poll instead of asking the user to copy anything. */
+app.post('/api/model-account/chatgpt/authorize', async (req, res) => {
+  if (!modelAccounts.chatgptConnectEnabled()) {
+    return res.status(404).json({ error: 'ChatGPT connections are disabled on this server' })
+  }
+  const started = modelAccounts.beginChatgptAuth(req.user!.id)
+  const catching = isSameMachine(req) ? await modelAccounts.startCallbackCatcher() : false
+  res.json({ ...started, catching })
+})
+
+/* step 2: the user pastes the redirect URL they landed on; we do the code
+   exchange server-side, so the browser never handles a token */
+app.post('/api/model-account/chatgpt', async (req, res) => {
+  if (!modelAccounts.chatgptConnectEnabled()) {
+    return res.status(404).json({ error: 'ChatGPT connections are disabled on this server' })
+  }
+  try {
+    res.json(accountView(await modelAccounts.completeChatgptAuth(req.user!.id, String(req.body?.redirect ?? ''))))
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : 'could not connect that ChatGPT account' })
+  }
+})
+
+/* device flow: no redirect URI at all, so it works wherever Bopixi is hosted.
+   We poll OpenAI in the background; the browser polls the status below. */
+app.post('/api/model-account/chatgpt/device', async (req, res) => {
+  if (!modelAccounts.chatgptConnectEnabled()) {
+    return res.status(404).json({ error: 'ChatGPT connections are disabled on this server' })
+  }
+  try {
+    res.json(await modelAccounts.beginDeviceAuth(req.user!.id))
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : 'could not start a device sign-in' })
+  }
+})
+
+app.get('/api/model-account/chatgpt/device', (req, res) => {
+  res.json(modelAccounts.deviceAuthStatus(req.user!.id) ?? { status: 'none' })
+})
+
+app.delete('/api/model-account/chatgpt/device', (req, res) => {
+  modelAccounts.cancelDeviceAuth(req.user!.id)
+  res.json({ ok: true })
+})
+
+app.post('/api/model-account/openai-key', async (req, res) => {
+  try {
+    res.json(accountView(await modelAccounts.connectApiKey(req.user!.id, String(req.body?.apiKey ?? ''))))
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : 'could not save that API key' })
+  }
+})
+
+app.post('/api/model-account/anthropic-key', async (req, res) => {
+  try {
+    const previous = await modelAccounts.getAccount(req.user!.id)
+    const status = await modelAccounts.connectAnthropicKey(req.user!.id, String(req.body?.apiKey ?? ''))
+    if (previous?.kind !== 'anthropic-key') {
+      const preference = await getLocalAgentPreference(req.user!.id)
+      await saveLocalAgentPreference(req.user!.id, { ...preference, enabled: false })
+    }
+    res.json(accountView(status))
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : 'could not save that API key' })
+  }
+})
+
+/* the two wide-roster keys share the anthropic-key route's shape, including
+   switching off the local-CLI preference so the new account is not shadowed */
+for (const kind of ['openrouter-key', 'gemini-key'] as const) {
+  const connect = kind === 'openrouter-key' ? modelAccounts.connectOpenRouterKey : modelAccounts.connectGeminiKey
+  app.post(`/api/model-account/${kind}`, async (req, res) => {
+    try {
+      const previous = await modelAccounts.getAccount(req.user!.id)
+      const status = await connect(req.user!.id, String(req.body?.apiKey ?? ''))
+      if (previous?.kind !== kind) {
+        const preference = await getLocalAgentPreference(req.user!.id)
+        await saveLocalAgentPreference(req.user!.id, { ...preference, enabled: false })
+      }
+      res.json(accountView(status))
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : 'could not save that API key' })
+    }
+  })
+}
+
+app.delete('/api/model-account', async (req, res) => {
+  await modelAccounts.disconnect(req.user!.id)
+  res.json(accountView({ connected: false }))
+})
+
+/* ---- which image model generate_image draws with (the shared registry;
+   entries the payer cannot run are shown but disabled) */
+
+app.get('/api/image-model', (req, res) => {
+  imageModelAvailability(req.user!.id)
+    .then((models) => res.json({ models }))
+    .catch(() => res.status(500).json({ error: 'image models unavailable' }))
+})
+
+app.put('/api/image-model', async (req, res) => {
+  try {
+    const model = String(req.body?.model ?? '')
+    const models = await imageModelAvailability(req.user!.id)
+    const entry = models.find((m) => m.id === model)
+    if (!entry) throw new Error('unknown image model')
+    if (!entry.available) throw new Error('that image model is not available on your account or this server')
+    await setImagePref(req.user!.id, model)
+    res.json({ models: await imageModelAvailability(req.user!.id) })
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : 'could not change the image model' })
+  }
+})
+
+/* ---- Agent keys: account-scoped bearer credentials for /mcp, the headless
+   agent path (see server/agentKeys.ts). The secret appears exactly once, in
+   the create response; the list carries only each key's start. The /api
+   session gate above means impersonating admins can look but not mint. */
+
+app.get('/api/agent-keys', async (req, res) => {
+  res.json(await agentKeys.listAgentKeys(req.user!.id))
+})
+
+app.post('/api/agent-keys', async (req, res) => {
+  const key = await agentKeys.createAgentKey(req.user!.id, String(req.body?.name ?? ''))
+  if (!key) return res.status(400).json({ error: 'agent key limit reached — revoke one you no longer use' })
+  res.json(key)
+})
+
+app.delete('/api/agent-keys/:id', async (req, res) => {
+  if (!(await agentKeys.deleteAgentKey(req.user!.id, req.params.id)))
+    return res.status(404).json({ error: 'agent key not found' })
+  res.json({ ok: true })
+})
+
+app.get('/api/canvases', async (req, res) => {
+  const list = workspaces.canvasesFor(req.user!.id)
+  /* the people on each canvas (owner first, then invited members) resolve
+     to names in one query — the home tiles wear them as an avatar stack */
+  const peopleIds = new Set<string>()
+  for (const c of list) for (const id of canvasPeopleIds(c.id)) peopleIds.add(id)
+  const names = new Map<string, string>()
+  if (peopleIds.size) {
+    const rows = await db
+      .select({ id: authSchema.user.id, name: authSchema.user.name })
+      .from(authSchema.user)
+      .where(inArray(authSchema.user.id, [...peopleIds]))
+    for (const r of rows) names.set(r.id, r.name)
+  }
+  res.json(
+    list.map((c) => {
+      /* which agents have worked on this canvas (most recent first), with
+         the user whose token they connected under and when they last worked */
+      const seen = new Map<string, { owner?: string; lastAt: number }>()
+      for (const t of actions.getTasks(c.id)) {
+        if (!t.agentName) continue // unclaimed board cards have no agent yet
+        if (!seen.has(t.agentName)) seen.set(t.agentName, { owner: t.owner, lastAt: t.startedAt })
+      }
+      return {
+        ...c,
+        people: canvasPeopleIds(c.id).map((id) => ({ id, name: names.get(id) ?? 'Unknown' })),
+        agents: [...seen].slice(0, 8).map(([name, v]) => ({ name, owner: v.owner, lastAt: v.lastAt })),
+        activeTasks: activeAgentTasks(actions.getTasks(c.id)),
+      }
+    }),
+  )
+})
+
+/** owner first, then invited members, each once */
+function canvasPeopleIds(canvasId: string): string[] {
+  const c = store.getCanvas(canvasId)
+  if (!c) return []
+  return [...new Set([...(c.ownerId ? [c.ownerId] : []), ...(c.memberIds ?? [])])]
+}
+
+/* A workspace canvas needs membership and a workspace that may still grow —
+   the 402 is what every client turns into the upgrade modal. */
+function requireGrowableWorkspace(req: express.Request, res: express.Response, workspaceId: string) {
+  const ws = workspaces.getWorkspace(workspaceId)
+  if (!ws || !workspaces.isWorkspaceMember(ws.id, req.user!.id)) {
+    res.status(404).json({ error: 'workspace not found' })
+    return null
+  }
+  if (!workspaces.isActive(ws)) {
+    workspaces.planRequired(res, ws)
+    return null
+  }
+  return ws
+}
+
+app.post('/api/canvases', (req, res) => {
+  const name = String(req.body?.name || 'Untitled canvas')
+  const workspaceId = typeof req.body?.workspaceId === 'string' ? req.body.workspaceId : undefined
+  if (workspaceId && !requireGrowableWorkspace(req, res, workspaceId)) return
+  res.json(store.createCanvas(name, req.user!.id, workspaceId))
+})
+
+app.post('/api/canvases/:id/duplicate', async (req, res) => {
+  const source = store.getCanvas(req.params.id)
+  if (!source) return res.status(404).json({ error: 'not found' })
+  if (!hasDurableCanvasAccess(req.user!.id, source)) return res.status(403).json({ error: 'access denied' })
+  /* a copy stays in the workspace when the copier is a member of it and the
+     workspace may still take canvases; otherwise it lands in their personal space */
+  const sourceWs = source.workspaceId ? workspaces.getWorkspace(source.workspaceId) : undefined
+  const workspaceId =
+    sourceWs && workspaces.isWorkspaceMember(sourceWs.id, req.user!.id) && workspaces.isActive(sourceWs)
+      ? sourceWs.id
+      : undefined
+  try {
+    const copy = await store.duplicateCanvas(source.id, req.user!.id, req.user!.name, { workspaceId })
+    res.json(copy)
+  } catch (error) {
+    console.error('[canvas] duplicate failed', error)
+    res.status(500).json({ error: 'could not duplicate canvas' })
+  }
+})
+
+app.get('/api/canvases/:id', (req, res) => {
+  const c = requireCanvas(req, res, req.params.id, 'view')
+  /* the caller's own role rides along, so the editor knows to go read-only */
+  if (c) res.json({ ...c, role: canvasRole(req.user!.id, c) })
+})
+
+/* Community gallery listing — the owner's call alone, like link access.
+   PUT both lists and re-describes; DELETE takes it down. */
+app.put('/api/canvases/:id/publish', (req, res) => {
+  const c = requireCanvas(req, res, req.params.id, 'edit')
+  if (!c) return
+  if (c.ownerId !== req.user!.id) return res.status(403).json({ error: 'only the owner can publish a canvas' })
+  if (!publishableFrames(c).length) return res.status(400).json({ error: 'add a frame before publishing' })
+  const listing = parseListing(req.body)
+  if (typeof listing === 'string') return res.status(400).json({ error: listing })
+  const published = store.publishCanvas(c.id, listing)!
+  res.json({ publishedAt: published.publishedAt, description: published.description, category: published.category })
+})
+
+app.delete('/api/canvases/:id/publish', (req, res) => {
+  const c = requireCanvas(req, res, req.params.id, 'edit')
+  if (!c) return
+  if (c.ownerId !== req.user!.id) return res.status(403).json({ error: 'only the owner can unpublish a canvas' })
+  store.unpublishCanvas(c.id)
+  res.json({ ok: true })
+})
+
+/* Move a canvas into a workspace (its owner, who must be a member, while it
+   may grow) or back out to its owner's personal space (the owner, or a
+   workspace admin). Moving is an access change, not an edit: every member
+   of the target workspace can open it from now on. */
+app.put('/api/canvases/:id/workspace', (req, res) => {
+  const c = requireCanvas(req, res, req.params.id, 'edit')
+  if (!c) return
+  const target = req.body?.workspaceId
+  if (target !== null && typeof target !== 'string')
+    return res.status(400).json({ error: 'workspaceId must be a workspace id or null' })
+  if (!canManageCanvas(req.user!.id, c))
+    return res.status(403).json({ error: 'only the canvas owner or a workspace admin can move it' })
+  if (target !== null) {
+    if (target === c.workspaceId) return res.json({ ok: true })
+    /* an admin's say over a workspace canvas ends at moving it out: re-homing
+       it into another workspace — one the owner may not even belong to — is
+       the owner's call alone */
+    if (c.ownerId !== req.user!.id)
+      return res.status(403).json({ error: 'only the canvas owner can move it into a workspace' })
+    if (!requireGrowableWorkspace(req, res, target)) return
+  }
+  store.setWorkspace(c.id, target ?? undefined)
+  res.json({ ok: true })
+})
+
+app.post('/api/canvases/:id/claim', (req, res) => {
+  const c = store.claimCanvas(req.params.id, req.user!.id)
+  if (!c) return res.status(409).json({ error: 'not found or already owned' })
+  res.json({ ok: true })
+})
+
+/* recent activity across all of the user's canvases, for the home dashboard */
+app.get('/api/home/activity', (req, res) => {
+  const canvases = workspaces.canvasesFor(req.user!.id)
+  const items = canvases.flatMap((c) =>
+    actions
+      .getActivity(c.id)
+      .slice(0, 20)
+      .map((a) => ({ ...a, canvasId: c.id, canvasName: c.name })),
+  )
+  items.sort((a, b) => b.at - a.at)
+  res.json(items.slice(0, 14))
+})
+
+app.delete('/api/canvases/:id', (req, res) => {
+  const c = store.getCanvas(req.params.id)
+  if (!c) return res.status(404).json({ error: 'not found' })
+  /* only the owner (or an admin of its workspace) may delete; unclaimed
+     (legacy) canvases are reachable only by direct link and must be claimed
+     before they can be destroyed */
+  if (!c.ownerId) return res.status(403).json({ error: 'claim it first' })
+  if (!canManageCanvas(req.user!.id, c)) return res.status(403).json({ error: 'not yours' })
+  actions.deleteCanvas(c.id)
+  res.json({ ok: true })
+})
+
+app.patch('/api/canvases/:id', (req, res) => {
+  const c = requireCanvas(req, res, req.params.id, 'edit')
+  if (!c) return
+  const { name, linkAccess } = req.body ?? {}
+  /* the link policy is the owner's alone — collaborators can rename, not lock */
+  if (linkAccess !== undefined) {
+    if (c.ownerId !== req.user!.id) return res.status(403).json({ error: 'only the owner can change link access' })
+    if (!isLinkAccess(linkAccess))
+      return res.status(400).json({ error: 'linkAccess must be "none", "view", "comment" or "edit"' })
+    store.setLinkAccess(c.id, linkAccess)
+    refreshRoomRoles(c.id)
+  }
+  if (typeof name === 'string' && name.trim()) {
+    const actor = userActor(req)
+    actions.renameCanvas(c.id, name.trim(), actor)
+  }
+  res.json({ ok: true })
+})
+
+/* ------------------------------------------------------------------ */
+/* Collaborators: Figma-style invites. The owner invites existing bopixi */
+/* accounts by email; members get full edit access regardless of the   */
+/* link setting. Management is owner-only (members may remove          */
+/* themselves); the people list is visible to anyone with access.      */
+/* ------------------------------------------------------------------ */
+
+app.get('/api/canvases/:id/members', async (req, res) => {
+  const c = requireCanvas(req, res, req.params.id, 'view')
+  if (!c) return
+  const ids = [...(c.ownerId ? [c.ownerId] : []), ...(c.memberIds ?? [])]
+  const rows = ids.length
+    ? await db
+        .select({ id: authSchema.user.id, name: authSchema.user.name, email: authSchema.user.email })
+        .from(authSchema.user)
+        .where(inArray(authSchema.user.id, ids))
+    : []
+  const byId = new Map(rows.map((r) => [r.id, r]))
+  res.json(
+    ids.map((id) => ({
+      userId: id,
+      name: byId.get(id)?.name ?? 'Unknown',
+      email: byId.get(id)?.email ?? '',
+      owner: id === c.ownerId,
+    })),
+  )
+})
+
+app.post('/api/canvases/:id/members', async (req, res) => {
+  const c = requireCanvas(req, res, req.params.id, 'edit')
+  if (!c) return
+  if (c.ownerId !== req.user!.id) return res.status(403).json({ error: 'only the owner can invite people' })
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : ''
+  if (!email) return res.status(400).json({ error: 'email required' })
+  const [row] = await db
+    .select({ id: authSchema.user.id, name: authSchema.user.name, email: authSchema.user.email })
+    .from(authSchema.user)
+    .where(eq(authSchema.user.email, email))
+  if (!row) return res.status(404).json({ error: 'no bopixi account with that email — ask them to sign up first' })
+  if (row.id === c.ownerId) return res.status(400).json({ error: 'the owner already has access' })
+  store.addMember(c.id, row.id, req.user!.id)
+  res.json({ userId: row.id, name: row.name, email: row.email, owner: false })
+})
+
+app.delete('/api/canvases/:id/members/:userId', (req, res) => {
+  const c = requireCanvas(req, res, req.params.id, 'view')
+  if (!c) return
+  if (c.ownerId !== req.user!.id && req.params.userId !== req.user!.id)
+    return res.status(403).json({ error: 'only the owner can remove collaborators' })
+  if (!store.removeMember(c.id, req.params.userId)) return res.status(404).json({ error: 'not a collaborator' })
+  res.json({ ok: true })
+})
+
+/* ---- design-sync keys: mint/list/revoke the write-only snippet creds.
+   Owner and invited members only — NOT link-edit visitors. A key is a
+   durable bearer credential, so someone whose access is only the share
+   link must not be able to mint one (or read an existing secret) and
+   keep writing frames after the owner turns the link off. */
+
+function requireDurableCanvas(req: express.Request, res: express.Response, canvasId: string) {
+  const c = requireCanvas(req, res, canvasId, 'view')
+  if (!c) return null
+  if (!hasDurableCanvasAccess(req.user!.id, c)) {
+    res.status(403).json({ error: 'sync keys are managed by the owner and invited members' })
+    return null
+  }
+  return c
+}
+
+app.get('/api/canvases/:id/sync-keys', async (req, res) => {
+  const c = requireDurableCanvas(req, res, req.params.id)
+  if (!c) return
+  const keys = await ingest.listSyncKeys(c.id)
+  res.json(keys.map((k) => ({ ...k, frames: ingest.syncedFrameCount(c, k.id) })))
+})
+
+app.post('/api/canvases/:id/sync-keys', async (req, res) => {
+  const c = requireDurableCanvas(req, res, req.params.id)
+  if (!c) return
+  const key = await ingest.createSyncKey(c.id, String(req.body?.name ?? ''), req.user!.id)
+  res.json({ ...key, frames: 0 })
+})
+
+/* the flow map is design insight, not a credential — anyone who can see the
+   frames can see how they connect */
+app.get('/api/canvases/:id/sync-flow', async (req, res) => {
+  const c = requireCanvas(req, res, req.params.id, 'view')
+  if (!c) return
+  res.json(await ingest.getSyncFlow(c))
+})
+
+app.delete('/api/canvases/:id/sync-keys/:keyId', async (req, res) => {
+  if (!requireDurableCanvas(req, res, req.params.id)) return
+  if (!(await ingest.deleteSyncKey(req.params.id, req.params.keyId)))
+    return res.status(404).json({ error: 'sync key not found' })
+  res.json({ ok: true })
+})
+
+/* ---- GitHub import source: connect a repo, enumerate its screens, land the
+   selected ones as frames. Same durable-access rule as sync keys — the
+   stored PAT is a standing credential, so link-edit visitors must not be
+   able to create or exercise a connection. Tokens never leave the server. */
+
+app.get('/api/canvases/:id/github', async (req, res) => {
+  const c = requireDurableCanvas(req, res, req.params.id)
+  if (!c) return
+  const connections = await github.listConnections(c.id)
+  res.json(
+    connections.map((conn) => ({ ...github.connectionInfo(conn), frames: github.importedFrameCount(c, conn.id) })),
+  )
+})
+
+app.post('/api/canvases/:id/github', async (req, res) => {
+  const c = requireDurableCanvas(req, res, req.params.id)
+  if (!c) return
+  try {
+    /* app mode: a signed pass from the install round-trip stands in for the
+       token, binding the GitHub App installation to this canvas */
+    let installationId: string | undefined
+    if (typeof req.body?.pass === 'string') {
+      const verified = githubApp.verifyInstallPass(req.body.pass, c.id)
+      if (!verified) return res.status(400).json({ error: 'the GitHub install handoff expired — connect again' })
+      installationId = verified.installationId
+    }
+    const conn = await github.createConnection({
+      canvasId: c.id,
+      repo: String(req.body?.repo ?? ''),
+      token: typeof req.body?.token === 'string' ? req.body.token : undefined,
+      installationId,
+      branch: typeof req.body?.branch === 'string' ? req.body.branch : undefined,
+      createdBy: req.user!.id,
+    })
+    res.json({ ...github.connectionInfo(conn), frames: 0 })
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : 'could not connect the repository' })
+  }
+})
+
+/* ---- GitHub App install flow: click Connect on the canvas, pick repos on
+   GitHub's install screen, land back on the canvas with a repo picker. The
+   signed state/pass pair keeps guessable installation ids from being bound
+   to canvases that never started an install (server/githubApp.ts). */
+
+app.get('/api/github/app', (req, res) => {
+  res.json({ enabled: githubApp.appEnabled(), slug: githubApp.appSlug() })
+})
+
+app.post('/api/canvases/:id/github/app/start', (req, res) => {
+  const c = requireDurableCanvas(req, res, req.params.id)
+  if (!c) return
+  if (!githubApp.appEnabled()) return res.status(400).json({ error: 'the GitHub App is not configured' })
+  res.json({ url: githubApp.installUrl(githubApp.signInstallState(c.id, req.user!.id)) })
+})
+
+/* GitHub's post-install redirect (the app's callback URL, with "request
+   user authorization during installation" on). Verifies the state minted at
+   start AND that the OAuth code's user actually owns the installation —
+   installation ids are guessable, and without the ownership proof a valid
+   state could bind someone else's installation. Then swaps state for a pass
+   and returns to the canvas, where the import modal shows the repo picker. */
+app.get('/api/github/app/setup', async (req, res) => {
+  const rawState = String(req.query.state ?? '')
+  const code = String(req.query.code ?? '')
+  /* failures land back on the canvas with a visible reason — a silent
+     homepage redirect reads as "nothing happened" */
+  const fail = (canvasId: string, reason: string) =>
+    res.redirect(`/c/${encodeURIComponent(canvasId)}?ghError=${encodeURIComponent(reason)}`)
+  const succeed = (canvasId: string, installationId: string) =>
+    res.redirect(
+      `/c/${encodeURIComponent(canvasId)}?ghInstall=${encodeURIComponent(githubApp.signInstallPass(canvasId, installationId))}`,
+    )
+
+  /* return leg of the already-installed bounce: the authorize round-trip
+     produced the code the configure screen didn't */
+  const oauth = githubApp.verifyOauthState(rawState)
+  if (oauth) {
+    try {
+      if (await githubApp.verifyInstallationOwner(code, oauth.installationId))
+        return succeed(oauth.canvasId, oauth.installationId)
+    } catch {
+      /* fall through to the error redirect */
+    }
+    return fail(oauth.canvasId, 'GitHub couldn’t confirm you own that installation — try connecting again')
+  }
+
+  const state = githubApp.verifyInstallState(rawState)
+  if (!state) return res.redirect('/')
+  const installationId = String(req.query.installation_id ?? '')
+  if (!/^\d+$/.test(installationId))
+    return fail(state.canvasId, 'GitHub sent no installation back — try connecting again')
+
+  /* app already installed on that account: GitHub showed the configure
+     screen and returned WITHOUT an OAuth code — bounce through authorize
+     (instant for an already-authorized user) purely to get one */
+  if (!code) return res.redirect(githubApp.oauthBounceUrl(githubApp.signOauthState(state.canvasId, installationId)))
+
+  try {
+    if (await githubApp.verifyInstallationOwner(code, installationId)) return succeed(state.canvasId, installationId)
+  } catch {
+    /* fall through to the error redirect */
+  }
+  return fail(state.canvasId, 'GitHub couldn’t confirm you own that installation — try connecting again')
+})
+
+app.get('/api/canvases/:id/github/app/repos', async (req, res) => {
+  const c = requireDurableCanvas(req, res, req.params.id)
+  if (!c) return
+  const verified = githubApp.verifyInstallPass(String(req.query.pass ?? ''), c.id)
+  if (!verified) return res.status(400).json({ error: 'the GitHub install handoff expired — connect again' })
+  try {
+    res.json(await githubApp.listInstallationRepos(verified.installationId))
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : 'could not list the installation’s repositories' })
+  }
+})
+
+app.delete('/api/canvases/:id/github/:connId', async (req, res) => {
+  if (!requireDurableCanvas(req, res, req.params.id)) return
+  if (!(await github.deleteConnection(req.params.id, req.params.connId)))
+    return res.status(404).json({ error: 'connection not found' })
+  res.json({ ok: true })
+})
+
+app.post('/api/canvases/:id/github/:connId/analyze', async (req, res) => {
+  const c = requireDurableCanvas(req, res, req.params.id)
+  if (!c) return
+  const conn = await github.getConnection(c.id, req.params.connId)
+  if (!conn) return res.status(404).json({ error: 'connection not found' })
+  try {
+    res.json(await github.analyzeConnection(conn))
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : 'repository analysis failed' })
+  }
+})
+
+/* one import at a time per repo connection — see the route */
+const connectionLocks = new Map<string, Promise<unknown>>()
+async function withConnectionLock<T>(connectionId: string, fn: () => Promise<T>): Promise<T> {
+  const previous = connectionLocks.get(connectionId) ?? Promise.resolve()
+  const run = previous.then(fn, fn)
+  const tail = run.catch(() => {})
+  connectionLocks.set(connectionId, tail)
+  try {
+    return await run
+  } finally {
+    if (connectionLocks.get(connectionId) === tail) connectionLocks.delete(connectionId)
+  }
+}
+
+app.post('/api/canvases/:id/github/:connId/import', async (req, res) => {
+  const c = requireDurableCanvas(req, res, req.params.id)
+  if (!c) return
+  // The pilot owns this user's routing. Reject before analysis, metering or
+  // queueing instead of accepting cards that its canvas-only harness cannot run.
+  if (geminiCloudWorkerFor(req.user!.id)) {
+    return res.status(409).json({
+      error:
+        'Repository imports are unavailable while the Gemini cloud pilot is selected. Ask your operator to disable the pilot, then select a provider that supports repository imports.',
+    })
+  }
+  const conn = await github.getConnection(c.id, req.params.connId)
+  if (!conn) return res.status(404).json({ error: 'connection not found' })
+  if (!takeImportSlot(req.user!.id)) return res.status(429).json({ error: 'too many imports — wait a minute' })
+  /* design-system-only import is the headline flow now — screens optional */
+  const designSystem = req.body?.design_system !== false
+  const rawScreens = Array.isArray(req.body?.screens) ? (req.body.screens as unknown[]) : []
+  if (!rawScreens.length && !designSystem)
+    return res.status(400).json({ error: 'pick components or screens, or enable the design-system extraction' })
+  try {
+    /* the selection is resolved against a manifest computed right now — see
+       matchSelection for why the client never dictates paths */
+    const { screens, rejected } = rawScreens.length
+      ? github.matchSelection((await github.analyzeConnection(conn)).screens, rawScreens)
+      : { screens: [], rejected: [] }
+    const input = { connectionId: conn.id, repo: conn.repo, screens, designSystem }
+    /* plan → gate → queue runs one import at a time per connection, so two
+       overlapping imports of the same screens cannot both pass the plan and
+       both pay while only one queues */
+    const outcome = await withConnectionLock(conn.id, async () => {
+      /* nothing new to queue (all rejected, or already on the board) costs nothing */
+      if (!actions.planRepoCards(c.id, input).length) return { cards: [] as string[] }
+      /* the import is the Bopixi Agent's work, card by card — same gate as a card
+         typed on the board: a free task, or the requester's own model account */
+      const gate = await allowance.consumeResidentTask(req.user!.id)
+      if (!gate.ok) return { limit: gate }
+      const cards = actions.addRepoCards(c.id, input, req.user!.name, req.user!.id)
+      return { cards: cards.map((card) => card.id) }
+    })
+    if (outcome.limit)
+      return res.status(403).json({ error: 'resident_limit', used: outcome.limit.used, limit: outcome.limit.limit })
+    res.json({ cards: outcome.cards, rejected })
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : 'import failed' })
+  }
+})
+
+/* upsert a named design doc; empty markdown deletes it (same permission
+   model as rename: any signed-in user with access) */
+/* doc history, newest first — '' markdown rows mark deletions */
+app.get('/api/canvases/:id/guidelines/:name/history', async (req, res) => {
+  if (!requireCanvas(req, res, req.params.id, 'view')) return
+  const rows = await persist.listGuidelineVersions(req.params.id, req.params.name.toLowerCase())
+  res.json(rows.map((v) => ({ markdown: v.markdown, savedAt: v.savedAt, savedBy: v.savedBy })))
+})
+
+app.put('/api/canvases/:id/guidelines/:name', (req, res) => {
+  if (!requireCanvas(req, res, req.params.id, 'edit')) return
+  const actor = userActor(req)
+  const { markdown, x, y, title } = req.body ?? {}
+  /* no markdown = metadata patch (position/title): content and history untouched */
+  if (markdown === undefined) {
+    const patch = {
+      ...(x !== undefined || y !== undefined ? { x: Number(x), y: Number(y) } : {}),
+      ...(typeof title === 'string' ? { title } : {}),
+    }
+    if (!actions.patchGuideline(req.params.id, req.params.name, patch, actor))
+      return res.status(404).json({ error: 'not found' })
+    return res.json({ ok: true })
+  }
+  try {
+    const pos = typeof x === 'number' && typeof y === 'number' ? { x, y } : undefined
+    const doc = actions.setGuideline(
+      req.params.id,
+      req.params.name,
+      String(markdown ?? ''),
+      actor,
+      pos,
+      typeof title === 'string' ? title : undefined,
+    )
+    if (doc === undefined) return res.status(404).json({ error: 'not found' })
+    res.json(doc ? { ok: true, doc } : { ok: true, deleted: true })
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : 'invalid doc' })
+  }
+})
+
+/* design memory: pin/unpin reference frames, accept/dismiss rule proposals */
+app.post('/api/canvases/:id/references', (req, res) => {
+  if (!requireCanvas(req, res, req.params.id, 'edit')) return
+  const actor = userActor(req)
+  try {
+    const ref = actions.pinReference(req.params.id, String(req.body?.frameId ?? ''), actor)
+    if (!ref) return res.status(404).json({ error: 'canvas or frame not found' })
+    res.json(ref)
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : 'pin failed' })
+  }
+})
+
+app.delete('/api/canvases/:id/references/:refId', (req, res) => {
+  if (!requireCanvas(req, res, req.params.id, 'edit')) return
+  const actor = userActor(req)
+  if (!actions.unpinReference(req.params.id, req.params.refId, actor))
+    return res.status(404).json({ error: 'reference not found' })
+  res.json({ ok: true })
+})
+
+app.post('/api/canvases/:id/proposals/:pid', (req, res) => {
+  if (!requireCanvas(req, res, req.params.id, 'edit')) return
+  const actor = userActor(req)
+  const proposal = actions.resolveProposal(req.params.id, req.params.pid, !!req.body?.accept, actor)
+  if (!proposal) return res.status(404).json({ error: 'proposal not found' })
+  res.json(proposal)
+})
+
+/* Browser asset uploads (paste / drop): raw image bytes in, permanent /a/
+   URL out. Same createAsset pipeline as the MCP ticket flow — the bytes are
+   sniffed for the real type and capped at 5 MB. express.json ignores the
+   image content-type, so express.raw here sees the untouched stream. */
+app.post(
+  '/api/canvases/:id/assets',
+  express.raw({ type: () => true, limit: MAX_ASSET_BYTES + 1024 }),
+  async (req, res) => {
+    const c = requireCanvas(req, res, req.params.id, 'edit')
+    if (!c) return
+    try {
+      const asset = await createAsset(Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0), {
+        canvasId: c.id,
+        ownerId: req.user!.id,
+        uploadedBy: req.user!.name,
+      })
+      /* absolute like the MCP flow: frame HTML renders inside sandboxed
+         srcdoc iframes where root-relative URLs don't resolve */
+      res.json({ url: `${env.BETTER_AUTH_URL}/a/${asset.id}.${asset.ext}`, mime: asset.mime, size: asset.size })
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : 'upload failed' })
+    }
+  },
+)
+
+app.put('/api/canvases/:id/pages', (req, res) => {
+  const canvas = requireCanvas(req, res, req.params.id, 'edit')
+  if (!canvas) return
+  const pages = req.body?.pages
+  if (
+    !Array.isArray(pages) ||
+    !pages.length ||
+    pages.length > 100 ||
+    pages.some(
+      (p) =>
+        !p ||
+        typeof p.id !== 'string' ||
+        !p.id.trim() ||
+        p.id.length > 100 ||
+        typeof p.name !== 'string' ||
+        !p.name.trim() ||
+        p.name.length > 100,
+    ) ||
+    new Set(pages.map((p) => p.id)).size !== pages.length
+  ) {
+    return res.status(400).json({ error: 'Provide 1–100 pages with unique IDs and names of up to 100 characters.' })
+  }
+  if (!samePages(req.body?.expectedPages, canvasPages(canvas)))
+    return res
+      .status(409)
+      .json({ error: 'Pages changed since you opened them. Please try again.', pages: canvasPages(canvas) })
+  const firstId = canvas.pages?.[0]?.id ?? `${canvas.id}:page1`
+  if (canvas.frames.some((f) => !pages.some((p) => p.id === (f.pageId ?? firstId)))) {
+    return res.status(400).json({ error: 'Move the frames to another page before deleting this page.' })
+  }
+  const clean = pages.map((p) => ({ id: p.id, name: p.name.trim() }))
+  const actor = userActor(req)
+  res.json(actions.setCanvasPages(canvas.id, clean, actor))
+})
+
+/* the frame a page's prototype flow starts on; null clears it */
+app.put('/api/canvases/:id/pages/:pageId/flow-start', (req, res) => {
+  const canvas = requireCanvas(req, res, req.params.id, 'edit')
+  if (!canvas) return
+  const frameId: unknown = req.body?.frameId
+  if (frameId !== null && typeof frameId !== 'string')
+    return res.status(400).json({ error: 'frameId must be a string or null' })
+  if (!canvasPages(canvas).some((p) => p.id === req.params.pageId))
+    return res.status(404).json({ error: 'page not found' })
+  if (frameId !== null) {
+    const frame = canvas.frames.find((f) => f.id === frameId)
+    if (!frame) return res.status(400).json({ error: `no frame ${frameId} on this canvas` })
+    if (framePageId(canvas, frame) !== req.params.pageId)
+      return res.status(400).json({ error: 'the start frame must be on the same page' })
+  }
+  const actor = userActor(req)
+  res.json(actions.setFlowStart(canvas.id, req.params.pageId, frameId, actor))
+})
+
+/* Ruler guides, one per request so two people dragging different guides
+   never overwrite each other. The id is the client's, which lets undo put
+   a removed guide back as itself. */
+app.put('/api/canvases/:id/guides/:guideId', (req, res) => {
+  const canvas = requireCanvas(req, res, req.params.id, 'edit')
+  if (!canvas) return
+  const guide = parseGuide(
+    req.params.guideId,
+    req.body,
+    canvasPages(canvas).map((page) => page.id),
+  )
+  if (typeof guide === 'string') return res.status(400).json({ error: guide })
+  const actor = userActor(req)
+  try {
+    res.json(actions.setGuide(canvas.id, guide, actor))
+  } catch (e) {
+    if (e instanceof GuideLimitError) return res.status(400).json({ error: e.message })
+    throw e
+  }
+})
+
+app.delete('/api/canvases/:id/guides/:guideId', (req, res) => {
+  const canvas = requireCanvas(req, res, req.params.id, 'edit')
+  if (!canvas) return
+  const actor = userActor(req)
+  /* idempotent: a guide a collaborator already removed is just as gone */
+  actions.deleteGuide(canvas.id, req.params.guideId, actor)
+  res.json({ ok: true })
+})
+
+app.post('/api/canvases/:id/pages/:pageId/duplicate', async (req, res) => {
+  const canvas = requireCanvas(req, res, req.params.id, 'edit')
+  if (!canvas) return
+  if (!canvasPages(canvas).some((page) => page.id === req.params.pageId))
+    return res.status(404).json({ error: 'page not found' })
+  const actor = userActor(req)
+  try {
+    const copy = await actions.duplicatePage(canvas.id, req.params.pageId, actor)
+    if (!copy) return res.status(404).json({ error: 'page not found' })
+    res.json({ page: copy.page, pages: copy.pages, frames: copy.frames })
+  } catch (e) {
+    if (e instanceof PageLimitError || e instanceof GuideLimitError) return res.status(400).json({ error: e.message })
+    console.error('[pages] duplicate failed', e)
+    res.status(500).json({ error: 'Could not duplicate the page. Please try again.' })
+  }
+})
+
+app.post('/api/canvases/:id/frames', (req, res) => {
+  if (!requireCanvas(req, res, req.params.id, 'edit')) return
+  const { name, pageId, x, y, width, height, html, hidden, locked } = req.body ?? {}
+  if (pageId !== undefined && !store.getCanvas(req.params.id)?.pages?.some((p) => p.id === pageId))
+    return res.status(400).json({ error: 'page not found' })
+  const actor = userActor(req)
+  /* `hidden` and `locked` let undo bring a deleted frame back as it was */
+  const frame = actions.createFrame(
+    req.params.id,
+    {
+      name: String(name || 'Frame'),
+      pageId,
+      x,
+      y,
+      width,
+      height,
+      html,
+      hidden: hidden === true,
+      locked: locked === true,
+    },
+    actor,
+  )
+  if (!frame) return res.status(404).json({ error: 'canvas not found' })
+  res.json(frame)
+})
+
+app.patch('/api/frames/:id', (req, res) => {
+  const current = requireFrame(req, res, req.params.id, 'edit', req.body?.expectedUpdatedAt)
+  if (!current) return
+  const { actor: _ignored, expectedUpdatedAt: _version, ...patch } = req.body ?? {}
+  const actor = userActor(req)
+  if (
+    patch.pageId !== undefined &&
+    !store.getCanvas(store.getFrame(req.params.id)!.canvasId)?.pages?.some((p) => p.id === patch.pageId)
+  )
+    return res.status(400).json({ error: 'page not found' })
+  const allowed = ['name', 'pageId', 'x', 'y', 'width', 'height', 'html'] as const
+  const clean: Record<string, unknown> = {}
+  for (const k of allowed) if (patch[k] !== undefined) clean[k] = patch[k]
+  /* the eye in the Layers panel: anything but a literal true shows the frame */
+  if (patch.hidden !== undefined) clean.hidden = patch.hidden === true
+  if (patch.locked !== undefined) clean.locked = !!patch.locked
+  const frame = actions.updateFrame(req.params.id, clean, actor)
+  if (!frame) return res.status(404).json({ error: 'frame not found' })
+  res.json(frame)
+})
+
+app.put('/api/frames/:id/approval', (req, res) => {
+  const current = requireFrame(req, res, req.params.id, 'edit', req.body?.expectedUpdatedAt)
+  if (!current) return
+  const { status, expectedUpdatedAt } = req.body ?? {}
+  if (expectedUpdatedAt === undefined)
+    return res.status(400).json({ error: 'expectedUpdatedAt is required to approve the reviewed version' })
+  if (status !== 'ready_for_dev' && status !== 'draft')
+    return res.status(400).json({ error: 'status must be ready_for_dev or draft' })
+  if (status === 'ready_for_dev' && actions.isFrameStreaming(current.id))
+    return res.status(409).json({ error: 'Wait for the design to finish before approving it.' })
+  res.json(actions.setFrameApproval(current.id, status === 'ready_for_dev', req.user!))
+})
+
+app.post('/api/frames/:id/append', (req, res) => {
+  if (!requireFrame(req, res, req.params.id, 'edit')) return
+  const { html_chunk, start, done } = req.body ?? {}
+  const actor = userActor(req)
+  const frame = actions.appendFrameHtml(req.params.id, String(html_chunk ?? ''), actor, {
+    start: !!start,
+    done: !!done,
+  })
+  if (!frame) return res.status(404).json({ error: 'frame not found' })
+  res.json({ ok: true, htmlBytes: frame.html.length })
+})
+
+app.delete('/api/frames/:id', (req, res) => {
+  if (!requireFrame(req, res, req.params.id, 'edit', req.body?.expectedUpdatedAt)) return
+  const actor = userActor(req)
+  const frame = actions.deleteFrame(req.params.id, actor)
+  if (!frame) return res.status(404).json({ error: 'frame not found' })
+  res.json({ ok: true })
+})
+
+/* design history: the states a frame had before later edits replaced them,
+   newest first and without HTML; one version in full; restore (same
+   permission model as editing — anyone with access to the canvas) */
+app.get('/api/frames/:id/versions', async (req, res) => {
+  if (!requireFrame(req, res, req.params.id, 'view')) return
+  res.json(await persist.listFrameVersions(req.params.id))
+})
+
+app.get('/api/frames/:id/versions/:versionId', async (req, res) => {
+  if (!requireFrame(req, res, req.params.id, 'view')) return
+  const version = await persist.getFrameVersion(req.params.id, req.params.versionId)
+  if (!version) return res.status(404).json({ error: 'version not found' })
+  res.json(version)
+})
+
+app.post('/api/frames/:id/versions/:versionId/restore', async (req, res) => {
+  if (!requireFrame(req, res, req.params.id, 'edit')) return
+  const actor = userActor(req)
+  const restored = await actions.restoreFrameVersion(req.params.id, req.params.versionId, actor)
+  if (restored === null) return res.status(404).json({ error: 'version not found' })
+  if (!restored) return res.status(404).json({ error: 'frame not found' })
+  res.json(restored)
+})
+
+app.post('/api/frames/:id/comments', async (req, res) => {
+  const frame = requireFrame(req, res, req.params.id, 'comment')
+  if (!frame) return
+  const { selector, elementId, snippet, text, x, y } = req.body ?? {}
+  if (refuseAgentMention(req, res, frame.canvasId, String(text ?? ''))) return
+  /* a comment that @mentions a resident agent is a new command to the team,
+     so it's metered like a card; plain comments and replies stay free */
+  if (mentionedRole(String(text ?? ''))) {
+    const gate = await allowance.consumeResidentTask(req.user!.id)
+    if (!gate.ok) {
+      return res.status(403).json({ error: 'resident_limit', used: gate.used, limit: gate.limit })
+    }
+  }
+  const comment = await actions.addElementComment(
+    req.params.id,
+    { selector, elementId, snippet, text: String(text ?? ''), x, y },
+    req.user!.name,
+    req.user!.id,
+  )
+  if (!comment) return res.status(404).json({ error: 'frame not found or empty text' })
+  res.json(comment)
+})
+
+/* the stable id of an element inside a frame — stamped as data-doop-id into
+   the frame HTML if it has none yet — for a link that outlives edits around
+   it. Anyone who may comment may stamp: the write is an annotation, not a
+   design change, so it leaves sign-off alone. */
+app.post('/api/frames/:id/element-id', async (req, res) => {
+  const frame = requireFrame(req, res, req.params.id, 'comment')
+  if (!frame) return
+  const selector = typeof req.body?.selector === 'string' ? req.body.selector.trim() : ''
+  if (!selector || selector.length > actions.MAX_ELEMENT_SELECTOR_CHARS) {
+    return res.status(400).json({ error: 'selector required' })
+  }
+  const snippet = typeof req.body?.snippet === 'string' ? req.body.snippet.slice(0, 400) : undefined
+  const stamped = await actions.ensureElementId(frame.id, selector, req.user!.name, snippet || undefined)
+  if (!stamped) return res.status(409).json({ error: 'the element could not be found in the frame right now' })
+  res.json({ elementId: stamped.id, frameUpdatedAt: stamped.frame.updatedAt })
+})
+
+/* a comment pinned to a point on the canvas (world coordinates on one of its
+   pages) rather than to an element — metered exactly like an element comment */
+app.post('/api/canvases/:id/comments', async (req, res) => {
+  const canvas = requireCanvas(req, res, req.params.id, 'comment')
+  if (!canvas) return
+  const { pageId, x, y, text } = req.body ?? {}
+  if (typeof pageId !== 'string' || !canvasPages(canvas).some((page) => page.id === pageId)) {
+    return res.status(400).json({ error: 'page not found' })
+  }
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return res.status(400).json({ error: 'x and y must be numbers' })
+  const body = String(text ?? '')
+  if (!body.trim()) return res.status(400).json({ error: 'empty text' })
+  if (refuseAgentMention(req, res, canvas.id, body)) return
+  let gate: Awaited<ReturnType<typeof allowance.consumeResidentTask>> | undefined
+  if (mentionedRole(body)) {
+    gate = await allowance.consumeResidentTask(req.user!.id)
+    if (!gate.ok) {
+      return res.status(403).json({ error: 'resident_limit', used: gate.used, limit: gate.limit })
+    }
+  }
+  const comment = actions.addCanvasComment(
+    canvas.id,
+    { pageId, x: Number(x), y: Number(y), text: body },
+    req.user!.name,
+    req.user!.id,
+  )
+  if (!comment) {
+    /* the page went away while the meter was being written: give the task
+       back — a failed refund is logged, never turned into a 500 */
+    if (gate) {
+      await allowance.refundResidentTask(gate, req.user!.id).catch((err) => {
+        console.error(`[comments] could not refund a resident task for ${req.user!.id}:`, err)
+      })
+    }
+    return res.status(409).json({ error: 'page removed meanwhile' })
+  }
+  res.json(comment)
+})
+
+app.post('/api/comments/:id/replies', async (req, res) => {
+  const found = actions.findComment(req.params.id)
+  if (!found) return res.status(404).json({ error: 'comment not found' })
+  if (!requireCanvas(req, res, found.canvasId, 'comment')) return
+  const text = String(req.body?.text ?? '')
+  if (!text.trim() || !actions.openThread(req.params.id)) {
+    return res.status(404).json({ error: 'thread resolved or empty text' })
+  }
+  if (refuseAgentMention(req, res, found.canvasId, text)) return
+  /* same rule as a fresh comment: only an @mention costs a resident task */
+  let gate: Awaited<ReturnType<typeof allowance.consumeResidentTask>> | undefined
+  if (mentionedRole(text)) {
+    gate = await allowance.consumeResidentTask(req.user!.id)
+    if (!gate.ok) {
+      return res.status(403).json({ error: 'resident_limit', used: gate.used, limit: gate.limit })
+    }
+  }
+  const reply = actions.replyToComment(req.params.id, text, req.user!.name, req.user!.id)
+  if (!reply) {
+    /* the thread closed while the meter was being written: give the task
+       back — a failed refund is logged, never turned into a 500 */
+    if (gate) {
+      await allowance.refundResidentTask(gate, req.user!.id).catch((err) => {
+        console.error(`[comments] could not refund a resident task for ${req.user!.id}:`, err)
+      })
+    }
+    return res.status(409).json({ error: 'thread resolved meanwhile' })
+  }
+  res.json(reply)
+})
+
+app.post('/api/comments/:id/resolve', (req, res) => {
+  const found = actions.findComment(req.params.id)
+  if (!found) return res.status(404).json({ error: 'comment not found' })
+  if (!requireCanvas(req, res, found.canvasId, 'comment')) return
+  res.json(actions.resolveComment(req.params.id, req.user!.name))
+})
+
+/* drag a thread's pin somewhere else: onto an element, a frame as a whole
+   or the canvas. The whole thread moves, and anyone who may comment may move */
+app.patch('/api/comments/:id/anchor', async (req, res) => {
+  const found = actions.findComment(req.params.id)
+  if (!found) return res.status(404).json({ error: 'comment not found' })
+  if (!requireCanvas(req, res, found.canvasId, 'comment')) return
+  const { frameId, selector, elementId, snippet, pageId, x, y } = req.body ?? {}
+  let anchor: CommentAnchorInput
+  if (typeof frameId === 'string') {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return res.status(400).json({ error: 'x and y must be numbers' })
+    anchor = {
+      frameId,
+      ...(typeof selector === 'string' ? { selector } : {}),
+      ...(typeof elementId === 'string' ? { elementId } : {}),
+      snippet: String(snippet ?? ''),
+      x: Number(x),
+      y: Number(y),
+    }
+  } else if (typeof pageId === 'string') {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return res.status(400).json({ error: 'x and y must be numbers' })
+    anchor = { pageId, x: Number(x), y: Number(y) }
+  } else return res.status(400).json({ error: 'frameId or pageId required' })
+  const moved = await actions.moveComment(req.params.id, anchor, req.user!.name)
+  if (!moved) return res.status(404).json({ error: 'frame or page not found' })
+  res.json(moved)
+})
+
+app.post('/api/comments/:id/retry', async (req, res) => {
+  const found = actions.findComment(req.params.id)
+  if (!found) return res.status(404).json({ error: 'comment not found' })
+  if (!requireCanvas(req, res, found.canvasId, 'edit')) return
+  const gate = await allowance.consumeResidentTask(req.user!.id)
+  if (!gate.ok) {
+    return res.status(403).json({ error: 'resident_limit', used: gate.used, limit: gate.limit })
+  }
+  res.json(actions.retryComment(req.params.id, req.user!.name))
+})
+
+/* Import one page immediately, or discover + import a user-reviewed set of
+   same-site pages. Discovery and capture are separate requests on purpose:
+   nothing gets added to the canvas until the user confirms the page list. */
+const importHits = new Map<string, number[]>()
+function takeImportSlot(userId: string): boolean {
+  const now = Date.now()
+  const hits = (importHits.get(userId) ?? []).filter((t) => now - t < 60_000)
+  if (hits.length >= 5) return false
+  hits.push(now)
+  importHits.set(userId, hits)
+  return true
+}
+
+app.post('/api/canvases/:id/import/discover', async (req, res) => {
+  if (!requireCanvas(req, res, req.params.id, 'edit')) return
+  try {
+    const { discoverSitePages, assertPublicHttpUrl } = await import('./importer.ts')
+    const url = String(req.body?.url ?? '')
+    assertPublicHttpUrl(url)
+    if (!takeImportSlot(req.user!.id)) return res.status(429).json({ error: 'too many imports — wait a minute' })
+    res.json(await discoverSitePages(url))
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : 'page discovery failed' })
+  }
+})
+
+app.post('/api/canvases/:id/import', async (req, res) => {
+  const canvas = requireCanvas(req, res, req.params.id, 'edit')
+  if (!canvas) return
+  try {
+    const { importPage, importSitePages, assertPublicHttpUrl, isSameSiteUrl, MAX_SITE_PAGES } =
+      await import('./importer.ts')
+    const requested: string[] | null = Array.isArray(req.body?.urls)
+      ? (req.body.urls as unknown[]).map((value) => String(value))
+      : null
+
+    if (requested) {
+      if (!requested.length) return res.status(400).json({ error: 'select at least one page' })
+      if (requested.length > MAX_SITE_PAGES) {
+        return res.status(400).json({ error: `a website import is limited to ${MAX_SITE_PAGES} pages` })
+      }
+      /* Validate the whole batch before consuming a slot or opening Chromium. */
+      const validated = requested.map((url) => assertPublicHttpUrl(url))
+      const [first, ...rest] = validated
+      if (first && rest.some((url) => !isSameSiteUrl(url, first))) {
+        return res.status(400).json({ error: 'all selected pages must belong to the same website' })
+      }
+      const urls = [...new Set(validated.map((url) => url.href))]
+      if (!takeImportSlot(req.user!.id)) return res.status(429).json({ error: 'too many imports — wait a minute' })
+
+      const captures = await importSitePages(urls)
+      const actor = userActor(req)
+      const frames = []
+      const failures: { url: string; error: string }[] = []
+      const rightmost = canvas.frames.reduce((right, frame) => Math.max(right, frame.x + frame.width), 0)
+      const startX = canvas.frames.length ? rightmost + 80 : 120
+      const columns = 3
+      let column = 0
+      let y = 120
+      let rowHeight = 0
+
+      for (const capture of captures) {
+        if (!capture.page) {
+          failures.push({ url: capture.url, error: capture.error ?? 'import failed' })
+          continue
+        }
+        const imported = capture.page
+        const frame = actions.createFrame(
+          canvas.id,
+          {
+            name: imported.title.slice(0, 80),
+            x: startX + column * (imported.width + 80),
+            y,
+            width: imported.width,
+            height: imported.height,
+            html: imported.html,
+          },
+          actor,
+        )
+        if (!frame) {
+          failures.push({ url: capture.url, error: 'canvas not found' })
+          continue
+        }
+        frames.push(frame)
+        rowHeight = Math.max(rowHeight, imported.height)
+        column++
+        if (column === columns) {
+          column = 0
+          y += rowHeight + 80
+          rowHeight = 0
+        }
+      }
+      return res.json({ frames, failures })
+    }
+
+    const url = String(req.body?.url ?? '')
+    /* Validate before consuming a rate-limit slot — typos shouldn't burn quota. */
+    assertPublicHttpUrl(url)
+    if (!takeImportSlot(req.user!.id)) return res.status(429).json({ error: 'too many imports — wait a minute' })
+    const imported = await importPage(url)
+    const actor = userActor(req)
+    const frame = actions.createFrame(
+      canvas.id,
+      { name: imported.title.slice(0, 80), width: imported.width, height: imported.height, html: imported.html },
+      actor,
+    )
+    if (!frame) return res.status(404).json({ error: 'canvas not found' })
+    res.json(frame)
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : 'import failed' })
+  }
+})
+
+app.post('/api/canvases/:id/cards', async (req, res) => {
+  if (!requireCanvas(req, res, req.params.id, 'edit')) return
+  const title = String(req.body?.title ?? '').trim()
+  if (!title) return res.status(400).json({ error: 'empty title' })
+  const gate = await allowance.consumeResidentTask(req.user!.id)
+  if (!gate.ok) {
+    return res.status(403).json({ error: 'resident_limit', used: gate.used, limit: gate.limit })
+  }
+  const card = actions.addQueuedCard(
+    req.params.id,
+    title,
+    req.user!.name,
+    req.body?.agents,
+    req.body?.attachments,
+    req.user!.id,
+    req.body?.scope,
+  )
+  if (!card) return res.status(404).json({ error: 'canvas not found or empty title' })
+  res.json(card)
+})
+
+app.post('/api/canvases/:canvasId/cards/:id/done', (req, res) => {
+  if (!requireCanvas(req, res, req.params.canvasId, 'edit')) return
+  const card = actions.completeCard(req.params.canvasId, req.params.id)
+  if (!card) return res.status(404).json({ error: 'card not found' })
+  res.json(card)
+})
+
+app.post('/api/canvases/:canvasId/cards/:id/retry', async (req, res) => {
+  if (!requireCanvas(req, res, req.params.canvasId, 'edit')) return
+  const gate = await allowance.consumeResidentTask(req.user!.id)
+  if (!gate.ok) {
+    return res.status(403).json({ error: 'resident_limit', used: gate.used, limit: gate.limit })
+  }
+  const card = actions.retryCard(req.params.canvasId, req.params.id, req.user!.name)
+  if (!card) return res.status(404).json({ error: 'card not found' })
+  res.json(card)
+})
+
+app.post('/api/canvases/:canvasId/cards/:id/stop', (req, res) => {
+  if (!requireCanvas(req, res, req.params.canvasId, 'edit')) return
+  const card = actions.stopCard(req.params.canvasId, req.params.id, req.user!.name)
+  if (!card) return res.status(404).json({ error: 'card not found' })
+  res.json(card)
+})
+
+app.post('/api/tasks/:id/feedback', async (req, res) => {
+  const canvasId = actions.taskCanvasId(req.params.id)
+  if (!canvasId) return res.status(404).json({ error: 'task not found' })
+  if (!requireCanvas(req, res, canvasId, 'edit')) return
+  const text = String(req.body?.text ?? '').trim()
+  if (!text) return res.status(400).json({ error: 'empty text' })
+  const gate = await allowance.consumeResidentTask(req.user!.id)
+  if (!gate.ok) {
+    return res.status(403).json({ error: 'resident_limit', used: gate.used, limit: gate.limit })
+  }
+  const fb = actions.addTaskFeedback(req.params.id, req.user!.name, text, req.user!.id)
+  if (!fb) return res.status(404).json({ error: 'task not found or empty text' })
+  res.json(fb)
+})
+
+app.post('/api/feedback/:id/retry', async (req, res) => {
+  const found = actions.findFeedback(req.params.id)
+  if (!found) return res.status(404).json({ error: 'feedback not found' })
+  if (!requireCanvas(req, res, found.canvasId, 'edit')) return
+  const gate = await allowance.consumeResidentTask(req.user!.id)
+  if (!gate.ok) {
+    return res.status(403).json({ error: 'resident_limit', used: gate.used, limit: gate.limit })
+  }
+  res.json(actions.retryTaskFeedback(req.params.id, req.user!.name))
+})
+
+app.get('/api/frames/:id/screenshot.png', async (req, res) => {
+  const frame = requireFrame(req, res, req.params.id, 'view')
+  if (!frame) return
+  try {
+    const { renderFrame } = await import('./screenshot.ts')
+    const png = await renderFrame(frame, req.query.scale === '2' ? 2 : 1)
+    res.type('png').send(png)
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : 'render failed' })
+  }
+})
+
+/* Vector PDF of frames on a canvas, a page per frame: ?frames=<id>,<id>
+   picks frames, pages in the order listed, else ?page=<pageId> (default the
+   first page) takes every visible frame there, in reading order. A GET so a read-only
+   impersonation session can export too. */
+app.get('/api/canvases/:id/export.pdf', async (req, res) => {
+  const canvas = requireCanvas(req, res, req.params.id, 'view')
+  if (!canvas) return
+  const pdf = await import('./pdfExport.ts')
+  const frameIds = typeof req.query.frames === 'string' ? req.query.frames.split(',').filter(Boolean) : undefined
+  const pageId = typeof req.query.page === 'string' && req.query.page ? req.query.page : undefined
+  const selection = pdf.selectPdfFrames(canvas, { frameIds, pageId })
+  if (!selection.ok) return res.status(selection.status).json({ error: selection.error })
+  if (!pdf.pdfRendererAvailable()) {
+    return res.status(503).json({ error: pdf.PDF_UNAVAILABLE_MESSAGE })
+  }
+  if (!pdf.takePdfExportSlot(req.user!.id)) {
+    res.set('Retry-After', '60')
+    return res.status(429).json({ error: 'PDF export rate limit — wait a minute' })
+  }
+  try {
+    const buf = await pdf.renderFramesPdf(selection.frames)
+    res.set('Content-Type', 'application/pdf')
+    res.set('Content-Disposition', `attachment; filename="${pdf.pdfFileName(canvas, selection.frames)}"`)
+    res.set('Cache-Control', 'no-store')
+    return res.send(buf)
+  } catch (e) {
+    if (e instanceof pdf.PdfRendererUnavailableError) return res.status(503).json({ error: e.message })
+    return res.status(500).json({ error: e instanceof Error ? e.message : 'PDF export failed' })
+  }
+})
+
+/* MCP endpoint — point any MCP-capable AI at http://localhost:PORT/mcp.
+   Protected by OAuth: unauthenticated calls get 401 + discovery pointers. */
+app.all('/mcp', handleMcpRequest)
+
+/* OAuth discovery metadata at the root, where MCP clients look for it
+   (better-auth serves these under /api/auth; we bridge the web-standard
+   handlers into Express) */
+function bridge(handler: (req: globalThis.Request) => Promise<globalThis.Response>) {
+  return async (req: express.Request, res: express.Response) => {
+    const out = await handler(new globalThis.Request(`${req.protocol}://${req.get('host')}${req.originalUrl}`))
+    res.status(out.status)
+    out.headers.forEach((v, k) => res.setHeader(k, v))
+    res.send(await out.text())
+  }
+}
+app.get('/.well-known/oauth-authorization-server', (req, res) => bridge(oAuthDiscoveryMetadata(auth))(req, res))
+/* The same document under the OpenID Connect name: ChatGPT accepts either,
+   but its Enterprise workspace-domain restriction reads only this one (it
+   needs the userinfo_endpoint better-auth already lists there). */
+app.get('/.well-known/openid-configuration', (req, res) => bridge(oAuthDiscoveryMetadata(auth))(req, res))
+
+/* Protected-resource metadata must name the exact endpoint the CLIENT
+   connected to (RFC 9728 §3.3 — strict clients such as Muse reject a `resource`
+   that differs from the URL they called, so it is `<origin>/mcp`, never the bare
+   origin), while the authorization server stays on the canonical origin. In dev
+   the app may be reached via :4300, :4301 (vite port bump) or :4400 — all must
+   validate, so the origin is echoed from the request. Both well-known paths
+   serve the same document, the shape Linear ships. */
+function protectedResourceMetadata(req: express.Request, res: express.Response) {
+  res.json({
+    resource: `${req.protocol}://${req.get('host')}/mcp`,
+    authorization_servers: [env.BETTER_AUTH_URL],
+    jwks_uri: `${env.BETTER_AUTH_URL}/api/auth/mcp/jwks`,
+    scopes_supported: ['openid', 'profile', 'email', 'offline_access'],
+    bearer_methods_supported: ['header'],
+    resource_signing_alg_values_supported: ['RS256'],
+  })
+}
+app.get('/.well-known/oauth-protected-resource', protectedResourceMetadata)
+/* path-aware variant some clients probe for a resource at /mcp */
+app.get('/.well-known/oauth-protected-resource/mcp', protectedResourceMetadata)
+
+/* robots + minimal sitemap for every deployment */
+app.get('/robots.txt', (_req, res) => {
+  res
+    .type('text/plain')
+    .send(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /c/\n\nSitemap: ${env.BETTER_AUTH_URL}/sitemap.xml\n`)
+})
+app.get('/sitemap.xml', (_req, res) => {
+  res
+    .type('application/xml')
+    .send(
+      `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${env.BETTER_AUTH_URL}/</loc></url>\n</urlset>\n`,
+    )
+})
+
+/* production: serve the built client */
+if (env.isProduction) {
+  const dist = path.join(process.cwd(), 'dist')
+  app.use(express.static(dist))
+  /* a missing bundle or source map is a 404, not the app shell: HTML served
+     as a .js or .map breaks module loads and source map resolution */
+  app.get('/assets/*', (_req, res) => res.sendStatus(404))
+  app.get('*', (_req, res) => res.sendFile(path.join(dist, 'index.html')))
+}
+
+/* ------------------------------------------------- websocket */
+
+const server = http.createServer(app)
+const wss = new WebSocketServer({ server, path: '/ws' })
+
+wss.on('connection', (ws, upgradeReq) => {
+  /* the session cookie rides the upgrade request; resolve it once */
+  const sessionPromise = auth.api
+    .getSession({ headers: fromNodeHeaders(upgradeReq.headers) })
+    .then((session) => session ?? (env.DISABLE_AUTH ? localSession() : null))
+    .catch(() => (env.DISABLE_AUTH ? localSession() : null))
+
+  ws.on('message', async (raw) => {
+    let msg: ClientMessage
+    try {
+      msg = JSON.parse(String(raw))
+    } catch {
+      return
+    }
+    const conn = conns.get(ws)
+
+    if (msg.type === 'join') {
+      const session = await sessionPromise
+      if (!session) {
+        ws.close(4401, 'unauthorized')
+        return
+      }
+      const canvas = store.getCanvas(msg.canvasId)
+      if (!canvas) {
+        /* a typo'd id or a canvas someone just deleted: say so and close,
+           instead of leaving the socket open with nothing ever coming back.
+           The client used to sit on a blank, unusable canvas UI forever
+           waiting for an 'init' that would never arrive. */
+        ws.close(4404, 'not found')
+        return
+      }
+      const role = canvasRole(session.user.id, canvas)
+      if (!role) {
+        ws.close(4403, 'no access')
+        return
+      }
+      const presence: Presence = {
+        clientId: msg.clientId,
+        userId: session.user.id,
+        name: session.user.name, // session identity, not whatever the client claims
+        color: colorFor(msg.clientId),
+        kind: 'user',
+        activeFrameId: null,
+      }
+      const silent = !!(session.session as { impersonatedBy?: string | null }).impersonatedBy
+      conns.set(ws, { ws, canvasId: msg.canvasId, userId: session.user.id, presence, silent })
+      const others = room(msg.canvasId)
+        .filter((c) => c.ws !== ws && !c.silent)
+        .map((c) => c.presence)
+      const agents = [...(agentPresences.get(msg.canvasId)?.values() ?? [])]
+      send(ws, {
+        type: 'init',
+        canvas: { ...canvas, role },
+        presences: [...others, ...agents],
+        activity: actions.getActivity(msg.canvasId),
+        tasks: actions.getTasks(msg.canvasId),
+        feedback: actions.getFeedback(msg.canvasId),
+        comments: actions.getComments(msg.canvasId),
+        decisions: actions.getDecisions(msg.canvasId),
+        proposals: actions.getProposals(msg.canvasId),
+        selfColor: presence.color,
+        serverBuild: BUILD_ID,
+      })
+      /* An admin looking at a canvas must not act on it. Announcing presence
+         would impersonate the owner in the room; maybePlay would have the
+         demo agent perform on an untouched signup canvas; the card kick would
+         start the resident agent working. All three are things the owner's
+         own visit is supposed to trigger, not a support session. */
+      if (silent) return
+      broadcast(msg.canvasId, { type: 'presence:join', presence }, presence.clientId)
+      /* the demo and the card kick are the owner's team at work — a share
+         link visitor without edit rights is only looking */
+      if (role !== 'edit') return
+      demo.maybePlay(msg.canvasId) // first visit to a fresh signup canvas: the demo agent performs
+      /* Start never-attempted cards. Failed/interrupted cards are excluded. */
+      if (actions.getTasks(msg.canvasId).some((t) => t.queuedBy && !t.agentName && !t.endedAt)) {
+        import('./resident.ts').then((r) => r.onFeedback(msg.canvasId)).catch(() => {})
+      }
+      return
+    }
+
+    if (!conn) return
+    if (conn.silent) return // view-as connections receive updates but never emit
+    const { canvasId, presence } = conn
+    /* view and comment visitors share cursors and viewports; claiming a
+       frame for editing or broadcasting a frame drag is editor-only */
+    const role = connRole(conn)
+    if (!role) {
+      ws.close(4403, 'no access')
+      return
+    }
+    if (!roleAllows(role, roomMessageNeeds(msg))) return
+
+    switch (msg.type) {
+      case 'cursor':
+        presence.cursor = { x: msg.x, y: msg.y }
+        broadcast(canvasId, { type: 'cursor', clientId: presence.clientId, x: msg.x, y: msg.y }, presence.clientId)
+        break
+      case 'viewport':
+        if (!isPeerViewport(msg.viewport)) break
+        presence.viewport = msg.viewport
+        broadcast(
+          canvasId,
+          { type: 'viewport', clientId: presence.clientId, viewport: msg.viewport },
+          presence.clientId,
+        )
+        break
+      case 'editing':
+        presence.activeFrameId = msg.frameId
+        broadcast(canvasId, { type: 'editing', clientId: presence.clientId, frameId: msg.frameId }, presence.clientId)
+        break
+      case 'frame:drag':
+        broadcast(
+          canvasId,
+          {
+            type: 'frame:drag',
+            clientId: presence.clientId,
+            frameId: msg.frameId,
+            x: msg.x,
+            y: msg.y,
+            width: msg.width,
+            height: msg.height,
+          },
+          presence.clientId,
+        )
+        break
+    }
+  })
+
+  ws.on('close', () => {
+    const conn = conns.get(ws)
+    if (!conn) return
+    conns.delete(ws)
+    if (conn.silent) return // never announced a join, so nothing to leave
+    broadcast(conn.canvasId, { type: 'presence:leave', clientId: conn.presence.clientId })
+  })
+})
+
+server.listen(PORT, () => {
+  console.log(`⟡ bopixi server     http://localhost:${PORT}`)
+  /* comments anchored before element ids: stamped now, while serving, so a
+     slow or failing row can never keep the server from coming up */
+  if (data.legacyCommentSelectors.size > 0) {
+    actions
+      .backfillElementIds(data.legacyCommentSelectors)
+      .then(({ stamped, lost, failed }) =>
+        console.log(
+          `[comments] element ids: ${stamped} comment(s) re-anchored, ${lost} lost their element, ${failed} left for the next boot`,
+        ),
+      )
+      .catch((err) => console.error('[comments] element id backfill failed:', err))
+  }
+  console.log(`⟡ mcp endpoint      http://localhost:${PORT}/mcp`)
+  console.log(`⟡ websocket         ws://localhost:${PORT}/ws`)
+  /* The Bopixi Agent failing silently is the one "why is nothing happening?"
+     a self-hoster cannot debug from the UI — board cards and @mentions just
+     sit there. Say so at boot, not only when the first card is queued. */
+  const tier = serverTierInfo()
+  console.log(
+    tier.ready
+      ? `⟡ bopixi agent        on — free tier on this server’s ${tier.provider === 'azure' ? 'Azure OpenAI deployment' : 'Anthropic key'}, then each user’s own model account`
+      : `⟡ bopixi agent        no server ${tier.provider === 'azure' ? 'Azure config' : 'key'} — runs only for users who connect their own ChatGPT subscription or OpenAI key (${tier.provider === 'azure' ? 'set the AZURE_OPENAI_* vars' : 'set ANTHROPIC_API_KEY'} for a free tier; agents connected over MCP work regardless)`,
+  )
+  console.log(
+    serverImageGenEnabled()
+      ? '⟡ image generation  on — each user’s connected ChatGPT/OpenAI account, else this server’s OPENAI_API_KEY'
+      : '⟡ image generation  on for users with a connected ChatGPT/OpenAI account only (set OPENAI_API_KEY to cover everyone else)',
+  )
+  /* automations fire from here: one tick a minute over the due rows */
+  startScheduler()
+  for (const extension of extensions) extension.startWorker?.()
+})

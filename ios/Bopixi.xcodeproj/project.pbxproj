@@ -1,0 +1,551 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		000000000000000000000383 /* SelectionDOM.js in Resources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000382 /* SelectionDOM.js */; };
+		000000000000000000000381 /* CanvasSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000380 /* CanvasSelection.swift */; };
+		000000000000000000000371 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000370 /* Fonts */; };
+		000000000000000000000360 /* Core/CanvasSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000361 /* Core/CanvasSocket.swift */; };
+		000000000000000000000352 /* Core/PendingFrameMoves.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000353 /* Core/PendingFrameMoves.swift */; };
+		000000000000000000000354 /* Core/ProviderSignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000355 /* Core/ProviderSignIn.swift */; };
+		000000000000000000000358 /* Core/AppleSignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000359 /* Core/AppleSignIn.swift */; };
+		000000000000000000000356 /* WebSignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000357 /* WebSignIn.swift */; };
+		000000000000000000000350 /* Core/FrameSnapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000351 /* Core/FrameSnapping.swift */; };
+		000000000000000000000300 /* Blitz/BlitzDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000310 /* Blitz/BlitzDocument.swift */; };
+		000000000000000000000305 /* Blitz/AgentMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000315 /* Blitz/AgentMark.swift */; };
+		000000000000000000000340 /* Blitz/AgentMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000315 /* Blitz/AgentMark.swift */; };
+		000000000000000000000301 /* Blitz/BlitzCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000311 /* Blitz/BlitzCanvasView.swift */; };
+		000000000000000000000302 /* Blitz/CanvasStress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000313 /* Blitz/CanvasStress.swift */; };
+		0000000000000000000000C8 /* BopixiApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000064 /* BopixiApp.swift */; };
+		0000000000000000000000CA /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000066 /* ContentView.swift */; };
+		0000000000000000000000CB /* Core/ServerAddress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000067 /* Core/ServerAddress.swift */; };
+		0000000000000000000000CC /* Core/ExportDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000068 /* Core/ExportDirectory.swift */; };
+		0000000000000000000000D2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000006E /* Assets.xcassets */; };
+		000000000000000000000332 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000330 /* PrivacyInfo.xcprivacy */; };
+		000000000000000000000333 /* BopixiActivity/PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000331 /* BopixiActivity/PrivacyInfo.xcprivacy */; };
+		000000000000000000000190 /* Core/Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000012C /* Core/Models.swift */; };
+		000000000000000000000191 /* BopixiClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000012D /* BopixiClient.swift */; };
+		000000000000000000000192 /* CanvasModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000012E /* CanvasModel.swift */; };
+		000000000000000000000194 /* NativeCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000130 /* NativeCanvasView.swift */; };
+		000000000000000000000262 /* Bopixi/Core/AgentActivityState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000258 /* Bopixi/Core/AgentActivityState.swift */; };
+		000000000000000000000263 /* Shared/AgentActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000259 /* Shared/AgentActivityAttributes.swift */; };
+		000000000000000000000264 /* Bopixi/AgentLiveActivities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000025A /* Bopixi/AgentLiveActivities.swift */; };
+		000000000000000000000265 /* Bopixi/GlassDock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000025B /* Bopixi/GlassDock.swift */; };
+		00000000000000000000026C /* Bopixi/Core/AgentActivityState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000258 /* Bopixi/Core/AgentActivityState.swift */; };
+		00000000000000000000026D /* Shared/AgentActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000259 /* Shared/AgentActivityAttributes.swift */; };
+		00000000000000000000026E /* BopixiActivity/BopixiActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000025C /* BopixiActivity/BopixiActivity.swift */; };
+		00000000000000000000026F /* Bopixi/Core/Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000025D /* Bopixi/Core/Models.swift */; };
+		000000000000000000000277 /* BopixiActivity.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 000000000000000000000276 /* BopixiActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		000000000000000000000284 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 000000000000000000000280;
+			remoteInfo = BopixiActivity;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		000000000000000000000278 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				000000000000000000000277 /* BopixiActivity.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		000000000000000000000382 /* SelectionDOM.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = SelectionDOM.js; sourceTree = "<group>"; };
+		000000000000000000000380 /* CanvasSelection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasSelection.swift; sourceTree = "<group>"; };
+		000000000000000000000370 /* Fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Fonts; sourceTree = "<group>"; };
+		000000000000000000000372 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		000000000000000000000361 /* Core/CanvasSocket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/CanvasSocket.swift; sourceTree = "<group>"; };
+		000000000000000000000353 /* Core/PendingFrameMoves.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/PendingFrameMoves.swift; sourceTree = "<group>"; };
+		000000000000000000000355 /* Core/ProviderSignIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/ProviderSignIn.swift; sourceTree = "<group>"; };
+		000000000000000000000359 /* Core/AppleSignIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/AppleSignIn.swift; sourceTree = "<group>"; };
+		000000000000000000000357 /* WebSignIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSignIn.swift; sourceTree = "<group>"; };
+		000000000000000000000351 /* Core/FrameSnapping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/FrameSnapping.swift; sourceTree = "<group>"; };
+		000000000000000000000310 /* Blitz/BlitzDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Blitz/BlitzDocument.swift; sourceTree = "<group>"; };
+		000000000000000000000315 /* Blitz/AgentMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Blitz/AgentMark.swift; sourceTree = "<group>"; };
+		000000000000000000000311 /* Blitz/BlitzCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Blitz/BlitzCanvasView.swift; sourceTree = "<group>"; };
+		000000000000000000000313 /* Blitz/CanvasStress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Blitz/CanvasStress.swift; sourceTree = "<group>"; };
+		000000000000000000000312 /* bopixiblitz.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = bopixiblitz.h; path = BlitzKit/include/bopixiblitz.h; sourceTree = SOURCE_ROOT; };
+		000000000000000000000064 /* BopixiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BopixiApp.swift; sourceTree = "<group>"; };
+		000000000000000000000330 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		000000000000000000000331 /* BopixiActivity/PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = BopixiActivity/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		000000000000000000000066 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		000000000000000000000067 /* Core/ServerAddress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/ServerAddress.swift; sourceTree = "<group>"; };
+		000000000000000000000068 /* Core/ExportDirectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/ExportDirectory.swift; sourceTree = "<group>"; };
+		00000000000000000000006E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		00000000000000000000006F /* Bopixi.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; path = Bopixi.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		00000000000000000000012C /* Core/Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Models.swift; sourceTree = "<group>"; };
+		00000000000000000000012D /* BopixiClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BopixiClient.swift; sourceTree = "<group>"; };
+		00000000000000000000012E /* CanvasModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasModel.swift; sourceTree = "<group>"; };
+		000000000000000000000130 /* NativeCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCanvasView.swift; sourceTree = "<group>"; };
+		000000000000000000000258 /* Bopixi/Core/AgentActivityState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bopixi/Core/AgentActivityState.swift; sourceTree = SOURCE_ROOT; };
+		000000000000000000000259 /* Shared/AgentActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shared/AgentActivityAttributes.swift; sourceTree = SOURCE_ROOT; };
+		00000000000000000000025A /* Bopixi/AgentLiveActivities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bopixi/AgentLiveActivities.swift; sourceTree = SOURCE_ROOT; };
+		00000000000000000000025B /* Bopixi/GlassDock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bopixi/GlassDock.swift; sourceTree = SOURCE_ROOT; };
+		00000000000000000000025C /* BopixiActivity/BopixiActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BopixiActivity/BopixiActivity.swift; sourceTree = SOURCE_ROOT; };
+		00000000000000000000025D /* Bopixi/Core/Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bopixi/Core/Models.swift; sourceTree = SOURCE_ROOT; };
+		000000000000000000000276 /* BopixiActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; path = BopixiActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		000000000000000000000008 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		000000000000000000000283 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		000000000000000000000002 = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000258 /* Bopixi/Core/AgentActivityState.swift */,
+				000000000000000000000259 /* Shared/AgentActivityAttributes.swift */,
+				00000000000000000000025A /* Bopixi/AgentLiveActivities.swift */,
+				00000000000000000000025B /* Bopixi/GlassDock.swift */,
+				00000000000000000000025C /* BopixiActivity/BopixiActivity.swift */,
+				000000000000000000000331 /* BopixiActivity/PrivacyInfo.xcprivacy */,
+				00000000000000000000025D /* Bopixi/Core/Models.swift */,
+				000000000000000000000003 /* Bopixi */,
+				000000000000000000000004 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		000000000000000000000003 /* Bopixi */ = {
+			isa = PBXGroup;
+			children = (
+				00000000000000000000012C /* Core/Models.swift */,
+				000000000000000000000351 /* Core/FrameSnapping.swift */,
+				000000000000000000000361 /* Core/CanvasSocket.swift */,
+				000000000000000000000353 /* Core/PendingFrameMoves.swift */,
+				000000000000000000000355 /* Core/ProviderSignIn.swift */,
+				000000000000000000000359 /* Core/AppleSignIn.swift */,
+				000000000000000000000357 /* WebSignIn.swift */,
+				00000000000000000000012D /* BopixiClient.swift */,
+				00000000000000000000012E /* CanvasModel.swift */,
+				000000000000000000000130 /* NativeCanvasView.swift */,
+				000000000000000000000382 /* SelectionDOM.js */,
+				000000000000000000000380 /* CanvasSelection.swift */,
+				000000000000000000000310 /* Blitz/BlitzDocument.swift */,
+				000000000000000000000315 /* Blitz/AgentMark.swift */,
+				000000000000000000000311 /* Blitz/BlitzCanvasView.swift */,
+				000000000000000000000313 /* Blitz/CanvasStress.swift */,
+				000000000000000000000312 /* bopixiblitz.h */,
+				000000000000000000000064 /* BopixiApp.swift */,
+				000000000000000000000330 /* PrivacyInfo.xcprivacy */,
+				000000000000000000000066 /* ContentView.swift */,
+				000000000000000000000067 /* Core/ServerAddress.swift */,
+				000000000000000000000068 /* Core/ExportDirectory.swift */,
+				00000000000000000000006E /* Assets.xcassets */,
+				000000000000000000000370 /* Fonts */,
+				000000000000000000000372 /* Info.plist */,
+			);
+			path = Bopixi;
+			sourceTree = "<group>";
+		};
+		000000000000000000000004 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				00000000000000000000006F /* Bopixi.app */,
+				000000000000000000000276 /* BopixiActivity.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		000000000000000000000005 /* Bopixi */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 00000000000000000000000B /* Build configuration list for PBXNativeTarget "Bopixi" */;
+			buildPhases = (
+				000000000000000000000320 /* Build Blitz library */,
+				000000000000000000000006 /* Sources */,
+				000000000000000000000007 /* Resources */,
+				000000000000000000000008 /* Frameworks */,
+				000000000000000000000278 /* Embed App Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				000000000000000000000285 /* PBXTargetDependency */,
+			);
+			name = Bopixi;
+			productName = Bopixi;
+			productReference = 00000000000000000000006F /* Bopixi.app */;
+			productType = "com.apple.product-type.application";
+		};
+		000000000000000000000280 /* BopixiActivity */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 00000000000000000000028A /* Build configuration list for PBXNativeTarget "BopixiActivity" */;
+			buildPhases = (
+				000000000000000000000281 /* Sources */,
+				000000000000000000000282 /* Resources */,
+				000000000000000000000283 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BopixiActivity;
+			productName = BopixiActivity;
+			productReference = 000000000000000000000276 /* BopixiActivity.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		000000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = 00000000000000000000000A /* Build configuration list for PBXProject "Bopixi" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 000000000000000000000002;
+			productRefGroup = 000000000000000000000004 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				000000000000000000000005 /* Bopixi */,
+				000000000000000000000280 /* BopixiActivity */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		000000000000000000000007 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0000000000000000000000D2 /* Assets.xcassets in Resources */,
+				000000000000000000000383 /* SelectionDOM.js in Resources */,
+				000000000000000000000371 /* Fonts in Resources */,
+				000000000000000000000332 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		000000000000000000000282 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				000000000000000000000333 /* BopixiActivity/PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		000000000000000000000320 /* Build Blitz library */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Build Blitz library";
+			outputPaths = (
+				"$(SRCROOT)/BlitzKit/lib/$(PLATFORM_NAME)/libbopixiblitz.a",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "\"$SRCROOT/BlitzKit/build.sh\" \"$PLATFORM_NAME\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		000000000000000000000006 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				000000000000000000000262 /* Bopixi/Core/AgentActivityState.swift in Sources */,
+				000000000000000000000263 /* Shared/AgentActivityAttributes.swift in Sources */,
+				000000000000000000000264 /* Bopixi/AgentLiveActivities.swift in Sources */,
+				000000000000000000000265 /* Bopixi/GlassDock.swift in Sources */,
+				000000000000000000000190 /* Core/Models.swift in Sources */,
+				000000000000000000000350 /* Core/FrameSnapping.swift in Sources */,
+				000000000000000000000360 /* Core/CanvasSocket.swift in Sources */,
+				000000000000000000000352 /* Core/PendingFrameMoves.swift in Sources */,
+				000000000000000000000354 /* Core/ProviderSignIn.swift in Sources */,
+				000000000000000000000358 /* Core/AppleSignIn.swift in Sources */,
+				000000000000000000000356 /* WebSignIn.swift in Sources */,
+				000000000000000000000191 /* BopixiClient.swift in Sources */,
+				000000000000000000000192 /* CanvasModel.swift in Sources */,
+				000000000000000000000194 /* NativeCanvasView.swift in Sources */,
+				000000000000000000000381 /* CanvasSelection.swift in Sources */,
+				000000000000000000000300 /* Blitz/BlitzDocument.swift in Sources */,
+				000000000000000000000305 /* Blitz/AgentMark.swift in Sources */,
+				000000000000000000000301 /* Blitz/BlitzCanvasView.swift in Sources */,
+				000000000000000000000302 /* Blitz/CanvasStress.swift in Sources */,
+				0000000000000000000000C8 /* BopixiApp.swift in Sources */,
+				0000000000000000000000CA /* ContentView.swift in Sources */,
+				0000000000000000000000CB /* Core/ServerAddress.swift in Sources */,
+				0000000000000000000000CC /* Core/ExportDirectory.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		000000000000000000000281 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				00000000000000000000026C /* Bopixi/Core/AgentActivityState.swift in Sources */,
+				00000000000000000000026D /* Shared/AgentActivityAttributes.swift in Sources */,
+				00000000000000000000026E /* BopixiActivity/BopixiActivity.swift in Sources */,
+				00000000000000000000026F /* Bopixi/Core/Models.swift in Sources */,
+				000000000000000000000340 /* Blitz/AgentMark.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		000000000000000000000285 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 000000000000000000000280 /* BopixiActivity */;
+			targetProxy = 000000000000000000000284 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		000000000000000000000014 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		000000000000000000000015 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		000000000000000000000016 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Bopixi/BopixiDebug.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = N29YR8ZK97;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Bopixi/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = bopixi;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LIBRARY_SEARCH_PATHS = "$(SRCROOT)/BlitzKit/lib/$(PLATFORM_NAME)";
+				OTHER_LDFLAGS = (
+					"-lbopixiblitz",
+					"-lc++",
+					"-framework",
+					Security,
+					"-framework",
+					CoreText,
+					"-framework",
+					CoreGraphics,
+					"-framework",
+					CoreFoundation,
+					"-framework",
+					SystemConfiguration,
+					"-framework",
+					ImageIO,
+					"-framework",
+					MobileCoreServices,
+					"-framework",
+					UIKit,
+					"-framework",
+					Metal,
+				);
+				SWIFT_OBJC_BRIDGING_HEADER = BlitzKit/include/bopixiblitz.h;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = design.bopixi.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		000000000000000000000017 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Bopixi/BopixiRelease.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = N29YR8ZK97;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Bopixi/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = bopixi;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LIBRARY_SEARCH_PATHS = "$(SRCROOT)/BlitzKit/lib/$(PLATFORM_NAME)";
+				OTHER_LDFLAGS = (
+					"-lbopixiblitz",
+					"-lc++",
+					"-framework",
+					Security,
+					"-framework",
+					CoreText,
+					"-framework",
+					CoreGraphics,
+					"-framework",
+					CoreFoundation,
+					"-framework",
+					SystemConfiguration,
+					"-framework",
+					ImageIO,
+					"-framework",
+					MobileCoreServices,
+					"-framework",
+					UIKit,
+					"-framework",
+					Metal,
+				);
+				SWIFT_OBJC_BRIDGING_HEADER = BlitzKit/include/bopixiblitz.h;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = design.bopixi.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		00000000000000000000028B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N29YR8ZK97;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BopixiActivity/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Bopixi Agent Status";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = design.bopixi.ios.activity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		00000000000000000000028C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = N29YR8ZK97;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BopixiActivity/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Bopixi Agent Status";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = design.bopixi.ios.activity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		00000000000000000000000A /* Build configuration list for PBXProject "Bopixi" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				000000000000000000000014 /* Debug */,
+				000000000000000000000015 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		00000000000000000000000B /* Build configuration list for PBXNativeTarget "Bopixi" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				000000000000000000000016 /* Debug */,
+				000000000000000000000017 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		00000000000000000000028A /* Build configuration list for PBXNativeTarget "BopixiActivity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				00000000000000000000028B /* Debug */,
+				00000000000000000000028C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 000000000000000000000001 /* Project object */;
+}

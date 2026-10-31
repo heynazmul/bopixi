@@ -1,0 +1,137 @@
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
+import {
+  PENDING_TTL_MS,
+  desktopAuthDeepLink,
+  desktopHandoffURL,
+  desktopSignInURL,
+  forgetPendingSignIn,
+  isPendingSignIn,
+  newChallenge,
+  parseDesktopAuthDeepLink,
+  parseDesktopHandoffQuery,
+  parseDesktopSignInQuery,
+  rememberPendingSignIn,
+} from '../src/lib/desktopAuth'
+
+const CHALLENGE = '0123456789abcdef0123456789abcdef'
+
+describe('desktop sign-in deep links', () => {
+  it('round-trips token, challenge and target', () => {
+    const link = desktopAuthDeepLink('abc 123', CHALLENGE, '/c/xyz?x=1')
+    expect(parseDesktopAuthDeepLink(link)).toEqual({ token: 'abc 123', challenge: CHALLENGE, to: '/c/xyz?x=1' })
+  })
+
+  it('falls back to home for a missing or foreign target', () => {
+    expect(parseDesktopAuthDeepLink(`bopixi://auth?token=t&challenge=${CHALLENGE}`)?.to).toBe('/')
+    expect(parseDesktopAuthDeepLink(desktopAuthDeepLink('t', CHALLENGE, '//evil.com'))?.to).toBe('/')
+    expect(parseDesktopAuthDeepLink(desktopAuthDeepLink('t', CHALLENGE, 'https://evil.com'))?.to).toBe('/')
+  })
+
+  it('rejects other schemes, hosts, malformed URLs and missing parts', () => {
+    expect(parseDesktopAuthDeepLink(`https://auth?token=t&challenge=${CHALLENGE}`)).toBeNull()
+    expect(parseDesktopAuthDeepLink(`bopixi://open?token=t&challenge=${CHALLENGE}`)).toBeNull()
+    expect(parseDesktopAuthDeepLink(`bopixi://auth?challenge=${CHALLENGE}`)).toBeNull()
+    expect(parseDesktopAuthDeepLink('bopixi://auth?token=t')).toBeNull()
+    expect(parseDesktopAuthDeepLink('not a url')).toBeNull()
+  })
+
+  it('still parses links minted with the pre-rename doop scheme', () => {
+    const legacy = `doop://auth?token=t&challenge=${CHALLENGE}&to=/c/abc`
+    expect(parseDesktopAuthDeepLink(legacy)).toEqual({ token: 't', challenge: CHALLENGE, to: '/c/abc' })
+  })
+
+  it('builds a handoff callback that carries challenge and target', () => {
+    const url = desktopHandoffURL(CHALLENGE, '/c/abc')
+    expect(url.startsWith('/desktop/handoff?')).toBe(true)
+    expect(parseDesktopHandoffQuery(url.slice(url.indexOf('?')))).toEqual({ challenge: CHALLENGE, to: '/c/abc' })
+    expect(parseDesktopHandoffQuery('?to=/c/abc')).toBeNull()
+  })
+})
+
+describe('desktop sign-in start page', () => {
+  it('round-trips provider, challenge and both landings through the browser URL', () => {
+    const request = {
+      provider: 'microsoft' as const,
+      challenge: CHALLENGE,
+      callbackURL: '/c/abc',
+      newUserCallbackURL: '/api/welcome',
+    }
+    const url = new URL(desktopSignInURL('https://doop.design', request))
+    expect(url.origin + url.pathname).toBe('https://doop.design/desktop/signin')
+    expect(parseDesktopSignInQuery(url.search)).toEqual(request)
+  })
+
+  it('sends a new account where a returning one goes when no landing of its own is given', () => {
+    const parsed = parseDesktopSignInQuery(`?provider=google&challenge=${CHALLENGE}&to=/c/abc`)
+    expect(parsed).toEqual({
+      provider: 'google',
+      challenge: CHALLENGE,
+      callbackURL: '/c/abc',
+      newUserCallbackURL: '/c/abc',
+    })
+  })
+
+  it('rejects unknown providers and bad challenges, sanitises both landings', () => {
+    expect(parseDesktopSignInQuery(`?provider=github&challenge=${CHALLENGE}&to=/`)).toBeNull()
+    expect(parseDesktopSignInQuery('?provider=google&to=/')).toBeNull()
+    expect(parseDesktopSignInQuery('?provider=google&challenge=short&to=/')).toBeNull()
+    const foreign = parseDesktopSignInQuery(
+      `?provider=google&challenge=${CHALLENGE}&to=//evil.com&newUserTo=//evil.com`,
+    )
+    expect(foreign?.callbackURL).toBe('/')
+    expect(foreign?.newUserCallbackURL).toBe('/')
+  })
+
+  it('mints distinct well-formed challenges', () => {
+    const a = newChallenge()
+    expect(a).toMatch(/^[0-9a-f]{32}$/)
+    expect(newChallenge()).not.toBe(a)
+  })
+})
+
+describe('pending sign-in', () => {
+  /* node has no localStorage; the record only needs get/set/remove */
+  const shim = new Map<string, string>()
+  beforeAll(() => {
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (k: string) => shim.get(k) ?? null,
+        setItem: (k: string, v: string) => void shim.set(k, v),
+        removeItem: (k: string) => void shim.delete(k),
+      },
+    })
+  })
+  afterAll(() => {
+    Reflect.deleteProperty(globalThis, 'localStorage')
+  })
+  afterEach(() => forgetPendingSignIn())
+
+  it('recognises only the remembered challenge, until forgotten', () => {
+    expect(isPendingSignIn(CHALLENGE)).toBe(false)
+    expect(rememberPendingSignIn(CHALLENGE)).toBe(true)
+    expect(isPendingSignIn(CHALLENGE)).toBe(true)
+    expect(isPendingSignIn(newChallenge())).toBe(false)
+    forgetPendingSignIn()
+    expect(isPendingSignIn(CHALLENGE)).toBe(false)
+  })
+
+  it('reports blocked storage so the browser is never sent off', () => {
+    const setItem = localStorage.setItem
+    localStorage.setItem = () => {
+      throw new Error('quota')
+    }
+    try {
+      expect(rememberPendingSignIn(CHALLENGE)).toBe(false)
+    } finally {
+      localStorage.setItem = setItem
+    }
+  })
+
+  it('expires', () => {
+    const t0 = 1_000_000
+    rememberPendingSignIn(CHALLENGE, t0)
+    expect(isPendingSignIn(CHALLENGE, t0 + PENDING_TTL_MS)).toBe(true)
+    expect(isPendingSignIn(CHALLENGE, t0 + PENDING_TTL_MS + 1)).toBe(false)
+  })
+})

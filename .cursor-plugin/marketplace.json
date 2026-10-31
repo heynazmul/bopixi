@@ -1,0 +1,16 @@
+{
+  "name": "bopixi",
+  "owner": {
+    "name": "Bopixi"
+  },
+  "metadata": {
+    "description": "Design together with humans and AI agents on Bopixi."
+  },
+  "plugins": [
+    {
+      "name": "bopixi",
+      "source": "./cursor-plugin",
+      "description": "Create and edit HTML designs on a shared Bopixi canvas."
+    }
+  ]
+}

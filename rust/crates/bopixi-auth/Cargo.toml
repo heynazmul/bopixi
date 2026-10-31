@@ -1,0 +1,10 @@
+[package]
+name = "bopixi-auth"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+bopixi-core = { path = "../bopixi-core" }

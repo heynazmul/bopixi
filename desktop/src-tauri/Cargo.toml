@@ -1,0 +1,34 @@
+[package]
+name = "bopixi-desktop"
+version = "0.7.0"
+description = "Desktop shell for Bopixi — a thin webview over the hosted app"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+# bopixi:// links: how a sign-in finished in the system browser reaches the app
+# (src/lib/desktopAuth.ts). single-instance routes a link that Windows/Linux
+# deliver by launching a second copy back into the running one.
+tauri-plugin-deep-link = "2"
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
+# generate_context! embeds the `plugins` section of tauri.conf.json through it
+serde_json = "1"
+toml_edit = "0.25"
+tempfile = "3"
+# Native "Save as" panel for PNG/JPG exports (the on_download handler in
+# main.rs); used directly rather than through tauri-plugin-dialog because the
+# download callback needs a synchronous answer on the UI thread.
+rfd = "0.16"
+
+# Repositioning the traffic lights over the web app's tab strip (main.rs);
+# AppKit resets them on window events, so the shell moves them itself.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3", features = ["NSButton", "NSControl", "NSResponder", "NSView", "NSWindow"] }
+
+[profile.release]
+strip = true
+lto = true

@@ -1,0 +1,5771 @@
+{
+  "tables": [
+    "account",
+    "activity",
+    "agent_keys",
+    "asset_refs",
+    "assets",
+    "automation_approvals",
+    "automation_runs",
+    "automations",
+    "backgrounds",
+    "canvas_members",
+    "canvases",
+    "comments",
+    "decisions",
+    "feedback",
+    "frame_versions",
+    "frames",
+    "github_connections",
+    "guideline_versions",
+    "guidelines",
+    "image_prefs",
+    "integrations",
+    "linear_installations",
+    "linear_oauth_states",
+    "linear_sessions",
+    "live_activities",
+    "live_activity_starters",
+    "local_agent_preferences",
+    "memory_proposals",
+    "memory_references",
+    "model_accounts",
+    "notification_prefs",
+    "oauth_access_token",
+    "oauth_application",
+    "oauth_consent",
+    "resident_usage",
+    "session",
+    "slack_installations",
+    "slack_oauth_states",
+    "slack_sessions",
+    "sync_edges",
+    "sync_keys",
+    "sync_links",
+    "tasks",
+    "user",
+    "verification",
+    "webhooks",
+    "workspace_invites",
+    "workspace_members",
+    "workspaces"
+  ],
+  "columns": [
+    {
+      "table": "account",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "account",
+      "position": 2,
+      "name": "account_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "account",
+      "position": 3,
+      "name": "provider_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "account",
+      "position": 4,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "account",
+      "position": 5,
+      "name": "access_token",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "account",
+      "position": 6,
+      "name": "refresh_token",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "account",
+      "position": 7,
+      "name": "id_token",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "account",
+      "position": 8,
+      "name": "access_token_expires_at",
+      "type": "timestamp without time zone",
+      "udt": "timestamp",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "account",
+      "position": 9,
+      "name": "refresh_token_expires_at",
+      "type": "timestamp without time zone",
+      "udt": "timestamp",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "account",
+      "position": 10,
+      "name": "scope",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "account",
+      "position": 11,
+      "name": "password",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "account",
+      "position": 12,
+      "name": "created_at",
+      "type": "timestamp without time zone",
+      "udt": "timestamp",
+      "nullable": false,
+      "default": "now()",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "account",
+      "position": 13,
+      "name": "updated_at",
+      "type": "timestamp without time zone",
+      "udt": "timestamp",
+      "nullable": false,
+      "default": "now()",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "activity",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "activity",
+      "position": 2,
+      "name": "canvas_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "activity",
+      "position": 3,
+      "name": "actor_name",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "activity",
+      "position": 4,
+      "name": "actor_kind",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "activity",
+      "position": 5,
+      "name": "actor_color",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "activity",
+      "position": 6,
+      "name": "message",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "activity",
+      "position": 7,
+      "name": "frame_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "activity",
+      "position": 8,
+      "name": "at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "agent_keys",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "agent_keys",
+      "position": 2,
+      "name": "secret_hash",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "agent_keys",
+      "position": 3,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "agent_keys",
+      "position": 4,
+      "name": "name",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "agent_keys",
+      "position": 5,
+      "name": "start",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "agent_keys",
+      "position": 6,
+      "name": "created_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "agent_keys",
+      "position": 7,
+      "name": "last_used_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "asset_refs",
+      "position": 1,
+      "name": "asset_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "asset_refs",
+      "position": 2,
+      "name": "frame_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "assets",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "assets",
+      "position": 2,
+      "name": "canvas_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "assets",
+      "position": 3,
+      "name": "owner_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "assets",
+      "position": 4,
+      "name": "mime",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "assets",
+      "position": 5,
+      "name": "ext",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "assets",
+      "position": 6,
+      "name": "size",
+      "type": "integer",
+      "udt": "int4",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "assets",
+      "position": 7,
+      "name": "uploaded_by",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "assets",
+      "position": 8,
+      "name": "created_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automation_approvals",
+      "position": 1,
+      "name": "automation_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automation_approvals",
+      "position": 2,
+      "name": "frame_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automation_approvals",
+      "position": 3,
+      "name": "approved_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automation_runs",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automation_runs",
+      "position": 2,
+      "name": "automation_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automation_runs",
+      "position": 3,
+      "name": "started_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automation_runs",
+      "position": 4,
+      "name": "ended_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automation_runs",
+      "position": 5,
+      "name": "status",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automation_runs",
+      "position": 6,
+      "name": "summary",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automation_runs",
+      "position": 7,
+      "name": "error",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automation_runs",
+      "position": 8,
+      "name": "canvas_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automation_runs",
+      "position": 9,
+      "name": "failure",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automation_runs",
+      "position": 10,
+      "name": "state",
+      "type": "jsonb",
+      "udt": "jsonb",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automation_runs",
+      "position": 11,
+      "name": "lease_until",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": "0",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automations",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automations",
+      "position": 2,
+      "name": "owner_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automations",
+      "position": 3,
+      "name": "name",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automations",
+      "position": 4,
+      "name": "enabled",
+      "type": "boolean",
+      "udt": "bool",
+      "nullable": false,
+      "default": "true",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automations",
+      "position": 5,
+      "name": "schedule",
+      "type": "jsonb",
+      "udt": "jsonb",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automations",
+      "position": 6,
+      "name": "steps",
+      "type": "jsonb",
+      "udt": "jsonb",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automations",
+      "position": 7,
+      "name": "next_run_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automations",
+      "position": 8,
+      "name": "created_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automations",
+      "position": 9,
+      "name": "updated_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automations",
+      "position": 10,
+      "name": "trigger",
+      "type": "jsonb",
+      "udt": "jsonb",
+      "nullable": false,
+      "default": "'{\"type\": \"schedule\"}'::jsonb",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "automations",
+      "position": 11,
+      "name": "approval_since",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": "0",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "backgrounds",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "backgrounds",
+      "position": 2,
+      "name": "source",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "backgrounds",
+      "position": 3,
+      "name": "width",
+      "type": "integer",
+      "udt": "int4",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "backgrounds",
+      "position": 4,
+      "name": "height",
+      "type": "integer",
+      "udt": "int4",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "backgrounds",
+      "position": 5,
+      "name": "tone",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "backgrounds",
+      "position": 6,
+      "name": "style",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "backgrounds",
+      "position": 7,
+      "name": "avg_color",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "backgrounds",
+      "position": 8,
+      "name": "palette",
+      "type": "jsonb",
+      "udt": "jsonb",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "backgrounds",
+      "position": 9,
+      "name": "tags",
+      "type": "jsonb",
+      "udt": "jsonb",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "backgrounds",
+      "position": 10,
+      "name": "slots",
+      "type": "jsonb",
+      "udt": "jsonb",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "backgrounds",
+      "position": 11,
+      "name": "text_zone",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "backgrounds",
+      "position": 12,
+      "name": "description",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "backgrounds",
+      "position": 13,
+      "name": "enabled",
+      "type": "boolean",
+      "udt": "bool",
+      "nullable": false,
+      "default": "true",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "backgrounds",
+      "position": 14,
+      "name": "created_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "canvas_members",
+      "position": 1,
+      "name": "canvas_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "canvas_members",
+      "position": 2,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "canvas_members",
+      "position": 3,
+      "name": "added_by",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "canvas_members",
+      "position": 4,
+      "name": "added_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "canvases",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "canvases",
+      "position": 2,
+      "name": "name",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "canvases",
+      "position": 3,
+      "name": "owner_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "canvases",
+      "position": 4,
+      "name": "link_access",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "canvases",
+      "position": 5,
+      "name": "created_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "canvases",
+      "position": 6,
+      "name": "updated_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "canvases",
+      "position": 7,
+      "name": "published_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "canvases",
+      "position": 8,
+      "name": "description",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "canvases",
+      "position": 9,
+      "name": "category",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "canvases",
+      "position": 10,
+      "name": "copy_count",
+      "type": "integer",
+      "udt": "int4",
+      "nullable": false,
+      "default": "0",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "canvases",
+      "position": 11,
+      "name": "workspace_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "canvases",
+      "position": 12,
+      "name": "pages",
+      "type": "jsonb",
+      "udt": "jsonb",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "canvases",
+      "position": 13,
+      "name": "guides",
+      "type": "jsonb",
+      "udt": "jsonb",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "comments",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "comments",
+      "position": 2,
+      "name": "canvas_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "comments",
+      "position": 3,
+      "name": "frame_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "comments",
+      "position": 4,
+      "name": "selector",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "comments",
+      "position": 5,
+      "name": "snippet",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "comments",
+      "position": 6,
+      "name": "from_name",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "comments",
+      "position": 7,
+      "name": "text",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "comments",
+      "position": 8,
+      "name": "at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "comments",
+      "position": 9,
+      "name": "for_agent",
+      "type": "boolean",
+      "udt": "bool",
+      "nullable": false,
+      "default": "false",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "comments",
+      "position": 10,
+      "name": "target_agent",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "comments",
+      "position": 11,
+      "name": "claimed_by",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "comments",
+      "position": 12,
+      "name": "claimed_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "comments",
+      "position": 13,
+      "name": "failed_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "comments",
+      "position": 14,
+      "name": "failure_reason",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "comments",
+      "position": 15,
+      "name": "resolved_by",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "comments",
+      "position": 16,
+      "name": "resolved_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "comments",
+      "position": 17,
+      "name": "from_user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "comments",
+      "position": 18,
+      "name": "parent_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "comments",
+      "position": 19,
+      "name": "page_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "comments",
+      "position": 20,
+      "name": "x",
+      "type": "double precision",
+      "udt": "float8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "comments",
+      "position": 21,
+      "name": "y",
+      "type": "double precision",
+      "udt": "float8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "comments",
+      "position": 22,
+      "name": "element_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "decisions",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "decisions",
+      "position": 2,
+      "name": "canvas_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "decisions",
+      "position": 3,
+      "name": "text",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "decisions",
+      "position": 4,
+      "name": "summary",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "decisions",
+      "position": 5,
+      "name": "source",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "decisions",
+      "position": 6,
+      "name": "frame_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "decisions",
+      "position": 7,
+      "name": "from_name",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "decisions",
+      "position": 8,
+      "name": "agent_name",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "decisions",
+      "position": 9,
+      "name": "at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "decisions",
+      "position": 10,
+      "name": "distilled_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "feedback",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "feedback",
+      "position": 2,
+      "name": "task_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "feedback",
+      "position": 3,
+      "name": "canvas_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "feedback",
+      "position": 4,
+      "name": "agent_name",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "feedback",
+      "position": 5,
+      "name": "target_agent",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "feedback",
+      "position": 6,
+      "name": "from_name",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "feedback",
+      "position": 7,
+      "name": "text",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "feedback",
+      "position": 8,
+      "name": "at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "feedback",
+      "position": 9,
+      "name": "delivered_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "feedback",
+      "position": 10,
+      "name": "claimed_by",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "feedback",
+      "position": 11,
+      "name": "completed_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "feedback",
+      "position": 12,
+      "name": "failed_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "feedback",
+      "position": 13,
+      "name": "failure_reason",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "feedback",
+      "position": 14,
+      "name": "from_user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frame_versions",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frame_versions",
+      "position": 2,
+      "name": "frame_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frame_versions",
+      "position": 3,
+      "name": "canvas_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frame_versions",
+      "position": 4,
+      "name": "html",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frame_versions",
+      "position": 5,
+      "name": "width",
+      "type": "double precision",
+      "udt": "float8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frame_versions",
+      "position": 6,
+      "name": "height",
+      "type": "double precision",
+      "udt": "float8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frame_versions",
+      "position": 7,
+      "name": "saved_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frame_versions",
+      "position": 8,
+      "name": "saved_by",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frame_versions",
+      "position": 9,
+      "name": "saved_by_kind",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frames",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frames",
+      "position": 2,
+      "name": "canvas_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frames",
+      "position": 3,
+      "name": "name",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frames",
+      "position": 4,
+      "name": "x",
+      "type": "double precision",
+      "udt": "float8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frames",
+      "position": 5,
+      "name": "y",
+      "type": "double precision",
+      "udt": "float8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frames",
+      "position": 6,
+      "name": "width",
+      "type": "double precision",
+      "udt": "float8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frames",
+      "position": 7,
+      "name": "height",
+      "type": "double precision",
+      "udt": "float8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frames",
+      "position": 8,
+      "name": "html",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frames",
+      "position": 9,
+      "name": "created_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frames",
+      "position": 10,
+      "name": "updated_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frames",
+      "position": 11,
+      "name": "updated_by",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frames",
+      "position": 12,
+      "name": "demo",
+      "type": "boolean",
+      "udt": "bool",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frames",
+      "position": 13,
+      "name": "page_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frames",
+      "position": 14,
+      "name": "hidden",
+      "type": "boolean",
+      "udt": "bool",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frames",
+      "position": 15,
+      "name": "locked",
+      "type": "boolean",
+      "udt": "bool",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "frames",
+      "position": 16,
+      "name": "approval",
+      "type": "jsonb",
+      "udt": "jsonb",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "github_connections",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "github_connections",
+      "position": 2,
+      "name": "canvas_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "github_connections",
+      "position": 3,
+      "name": "repo",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "github_connections",
+      "position": 4,
+      "name": "branch",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "github_connections",
+      "position": 5,
+      "name": "token",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "github_connections",
+      "position": 6,
+      "name": "deploy_url",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "github_connections",
+      "position": 7,
+      "name": "created_by",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "github_connections",
+      "position": 8,
+      "name": "created_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "github_connections",
+      "position": 9,
+      "name": "last_synced_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "github_connections",
+      "position": 10,
+      "name": "installation_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "guideline_versions",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "guideline_versions",
+      "position": 2,
+      "name": "canvas_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "guideline_versions",
+      "position": 3,
+      "name": "name",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "guideline_versions",
+      "position": 4,
+      "name": "markdown",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "guideline_versions",
+      "position": 5,
+      "name": "saved_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "guideline_versions",
+      "position": 6,
+      "name": "saved_by",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "guidelines",
+      "position": 1,
+      "name": "canvas_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "guidelines",
+      "position": 2,
+      "name": "name",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "guidelines",
+      "position": 3,
+      "name": "markdown",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "guidelines",
+      "position": 4,
+      "name": "title",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "guidelines",
+      "position": 5,
+      "name": "updated_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "guidelines",
+      "position": 6,
+      "name": "updated_by",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "guidelines",
+      "position": 7,
+      "name": "x",
+      "type": "double precision",
+      "udt": "float8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "guidelines",
+      "position": 8,
+      "name": "y",
+      "type": "double precision",
+      "udt": "float8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "image_prefs",
+      "position": 1,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "image_prefs",
+      "position": 2,
+      "name": "model",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "image_prefs",
+      "position": 3,
+      "name": "updated_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "integrations",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "integrations",
+      "position": 2,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "integrations",
+      "position": 3,
+      "name": "provider",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "integrations",
+      "position": 4,
+      "name": "access_token",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "integrations",
+      "position": 5,
+      "name": "expires_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "integrations",
+      "position": 6,
+      "name": "account_name",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "integrations",
+      "position": 7,
+      "name": "accounts",
+      "type": "jsonb",
+      "udt": "jsonb",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "integrations",
+      "position": 8,
+      "name": "connected_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "integrations",
+      "position": 9,
+      "name": "updated_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_installations",
+      "position": 1,
+      "name": "organization_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_installations",
+      "position": 2,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_installations",
+      "position": 3,
+      "name": "app_user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_installations",
+      "position": 4,
+      "name": "name",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_installations",
+      "position": 5,
+      "name": "access_token",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_installations",
+      "position": 6,
+      "name": "refresh_token",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_installations",
+      "position": 7,
+      "name": "expires_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_installations",
+      "position": 8,
+      "name": "connected_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_oauth_states",
+      "position": 1,
+      "name": "hash",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_oauth_states",
+      "position": 2,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_oauth_states",
+      "position": 3,
+      "name": "verifier",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_oauth_states",
+      "position": 4,
+      "name": "expires_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_sessions",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_sessions",
+      "position": 2,
+      "name": "organization_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_sessions",
+      "position": 3,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_sessions",
+      "position": 4,
+      "name": "issue_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_sessions",
+      "position": 5,
+      "name": "title",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_sessions",
+      "position": 6,
+      "name": "prompt",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_sessions",
+      "position": 7,
+      "name": "status",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": "'pending'::text",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_sessions",
+      "position": 8,
+      "name": "canvas_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_sessions",
+      "position": 9,
+      "name": "task_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_sessions",
+      "position": 10,
+      "name": "error",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_sessions",
+      "position": 11,
+      "name": "ack_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_sessions",
+      "position": 12,
+      "name": "result_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_sessions",
+      "position": 13,
+      "name": "next_attempt_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": "0",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_sessions",
+      "position": 14,
+      "name": "linked",
+      "type": "boolean",
+      "udt": "bool",
+      "nullable": false,
+      "default": "false",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_sessions",
+      "position": 15,
+      "name": "acknowledged",
+      "type": "boolean",
+      "udt": "bool",
+      "nullable": false,
+      "default": "false",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_sessions",
+      "position": 16,
+      "name": "reported",
+      "type": "boolean",
+      "udt": "bool",
+      "nullable": false,
+      "default": "false",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_sessions",
+      "position": 17,
+      "name": "created_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "linear_sessions",
+      "position": 18,
+      "name": "updated_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "live_activities",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "live_activities",
+      "position": 2,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "live_activities",
+      "position": 3,
+      "name": "canvas_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "live_activities",
+      "position": 4,
+      "name": "token",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "live_activities",
+      "position": 5,
+      "name": "environment",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "live_activities",
+      "position": 6,
+      "name": "expires_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "live_activities",
+      "position": 7,
+      "name": "last_payload",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "live_activities",
+      "position": 8,
+      "name": "last_timestamp",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": "0",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "live_activity_starters",
+      "position": 1,
+      "name": "token",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "live_activity_starters",
+      "position": 2,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "live_activity_starters",
+      "position": 3,
+      "name": "environment",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "live_activity_starters",
+      "position": 4,
+      "name": "origin",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "live_activity_starters",
+      "position": 5,
+      "name": "expires_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "local_agent_preferences",
+      "position": 1,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "local_agent_preferences",
+      "position": 2,
+      "name": "enabled",
+      "type": "boolean",
+      "udt": "bool",
+      "nullable": false,
+      "default": "false",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "local_agent_preferences",
+      "position": 3,
+      "name": "model",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": "'default'::text",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "local_agent_preferences",
+      "position": 4,
+      "name": "effort",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "memory_proposals",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "memory_proposals",
+      "position": 2,
+      "name": "canvas_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "memory_proposals",
+      "position": 3,
+      "name": "guide_name",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "memory_proposals",
+      "position": 4,
+      "name": "guide_title",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "memory_proposals",
+      "position": 5,
+      "name": "rule",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "memory_proposals",
+      "position": 6,
+      "name": "rationale",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "memory_proposals",
+      "position": 7,
+      "name": "based_on",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "memory_proposals",
+      "position": 8,
+      "name": "at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "memory_proposals",
+      "position": 9,
+      "name": "status",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "memory_proposals",
+      "position": 10,
+      "name": "resolved_by",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "memory_proposals",
+      "position": 11,
+      "name": "resolved_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "memory_references",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "memory_references",
+      "position": 2,
+      "name": "canvas_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "memory_references",
+      "position": 3,
+      "name": "frame_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "memory_references",
+      "position": 4,
+      "name": "title",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "memory_references",
+      "position": 5,
+      "name": "html",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "memory_references",
+      "position": 6,
+      "name": "width",
+      "type": "double precision",
+      "udt": "float8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "memory_references",
+      "position": 7,
+      "name": "height",
+      "type": "double precision",
+      "udt": "float8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "memory_references",
+      "position": 8,
+      "name": "pinned_by",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "memory_references",
+      "position": 9,
+      "name": "pinned_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "model_accounts",
+      "position": 1,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "model_accounts",
+      "position": 2,
+      "name": "kind",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "model_accounts",
+      "position": 3,
+      "name": "account_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "model_accounts",
+      "position": 4,
+      "name": "email",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "model_accounts",
+      "position": 5,
+      "name": "plan",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "model_accounts",
+      "position": 6,
+      "name": "access_token",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "model_accounts",
+      "position": 7,
+      "name": "refresh_token",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "model_accounts",
+      "position": 8,
+      "name": "expires_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "model_accounts",
+      "position": 9,
+      "name": "api_key",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "model_accounts",
+      "position": 10,
+      "name": "model",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "model_accounts",
+      "position": 11,
+      "name": "connected_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "model_accounts",
+      "position": 12,
+      "name": "updated_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "model_accounts",
+      "position": 13,
+      "name": "reasoning_effort",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "notification_prefs",
+      "position": 1,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "notification_prefs",
+      "position": 2,
+      "name": "comment_emails",
+      "type": "boolean",
+      "udt": "bool",
+      "nullable": false,
+      "default": "true",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "notification_prefs",
+      "position": 3,
+      "name": "updated_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_access_token",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_access_token",
+      "position": 2,
+      "name": "access_token",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_access_token",
+      "position": 3,
+      "name": "refresh_token",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_access_token",
+      "position": 4,
+      "name": "access_token_expires_at",
+      "type": "timestamp without time zone",
+      "udt": "timestamp",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_access_token",
+      "position": 5,
+      "name": "refresh_token_expires_at",
+      "type": "timestamp without time zone",
+      "udt": "timestamp",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_access_token",
+      "position": 6,
+      "name": "client_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_access_token",
+      "position": 7,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_access_token",
+      "position": 8,
+      "name": "scopes",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_access_token",
+      "position": 9,
+      "name": "created_at",
+      "type": "timestamp without time zone",
+      "udt": "timestamp",
+      "nullable": false,
+      "default": "now()",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_access_token",
+      "position": 10,
+      "name": "updated_at",
+      "type": "timestamp without time zone",
+      "udt": "timestamp",
+      "nullable": false,
+      "default": "now()",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_application",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_application",
+      "position": 2,
+      "name": "name",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_application",
+      "position": 3,
+      "name": "icon",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_application",
+      "position": 4,
+      "name": "metadata",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_application",
+      "position": 5,
+      "name": "client_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_application",
+      "position": 6,
+      "name": "client_secret",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_application",
+      "position": 7,
+      "name": "redirect_urls",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_application",
+      "position": 8,
+      "name": "type",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_application",
+      "position": 9,
+      "name": "disabled",
+      "type": "boolean",
+      "udt": "bool",
+      "nullable": true,
+      "default": "false",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_application",
+      "position": 10,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_application",
+      "position": 11,
+      "name": "created_at",
+      "type": "timestamp without time zone",
+      "udt": "timestamp",
+      "nullable": false,
+      "default": "now()",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_application",
+      "position": 12,
+      "name": "updated_at",
+      "type": "timestamp without time zone",
+      "udt": "timestamp",
+      "nullable": false,
+      "default": "now()",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_consent",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_consent",
+      "position": 2,
+      "name": "client_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_consent",
+      "position": 3,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_consent",
+      "position": 4,
+      "name": "scopes",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_consent",
+      "position": 5,
+      "name": "created_at",
+      "type": "timestamp without time zone",
+      "udt": "timestamp",
+      "nullable": false,
+      "default": "now()",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_consent",
+      "position": 6,
+      "name": "updated_at",
+      "type": "timestamp without time zone",
+      "udt": "timestamp",
+      "nullable": false,
+      "default": "now()",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "oauth_consent",
+      "position": 7,
+      "name": "consent_given",
+      "type": "boolean",
+      "udt": "bool",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "resident_usage",
+      "position": 1,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "resident_usage",
+      "position": 2,
+      "name": "used",
+      "type": "integer",
+      "udt": "int4",
+      "nullable": false,
+      "default": "0",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "resident_usage",
+      "position": 3,
+      "name": "updated_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "session",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "session",
+      "position": 2,
+      "name": "expires_at",
+      "type": "timestamp without time zone",
+      "udt": "timestamp",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "session",
+      "position": 3,
+      "name": "token",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "session",
+      "position": 4,
+      "name": "created_at",
+      "type": "timestamp without time zone",
+      "udt": "timestamp",
+      "nullable": false,
+      "default": "now()",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "session",
+      "position": 5,
+      "name": "updated_at",
+      "type": "timestamp without time zone",
+      "udt": "timestamp",
+      "nullable": false,
+      "default": "now()",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "session",
+      "position": 6,
+      "name": "ip_address",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "session",
+      "position": 7,
+      "name": "user_agent",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "session",
+      "position": 8,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "session",
+      "position": 9,
+      "name": "impersonated_by",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_installations",
+      "position": 1,
+      "name": "team_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_installations",
+      "position": 2,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_installations",
+      "position": 3,
+      "name": "bot_user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_installations",
+      "position": 4,
+      "name": "name",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_installations",
+      "position": 5,
+      "name": "bot_token",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_installations",
+      "position": 6,
+      "name": "connected_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_oauth_states",
+      "position": 1,
+      "name": "hash",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_oauth_states",
+      "position": 2,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_oauth_states",
+      "position": 3,
+      "name": "expires_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_sessions",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_sessions",
+      "position": 2,
+      "name": "team_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_sessions",
+      "position": 3,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_sessions",
+      "position": 4,
+      "name": "channel_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_sessions",
+      "position": 5,
+      "name": "thread_ts",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_sessions",
+      "position": 6,
+      "name": "requester_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_sessions",
+      "position": 7,
+      "name": "response_url",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_sessions",
+      "position": 8,
+      "name": "title",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_sessions",
+      "position": 9,
+      "name": "prompt",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_sessions",
+      "position": 10,
+      "name": "status",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": "'pending'::text",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_sessions",
+      "position": 11,
+      "name": "canvas_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_sessions",
+      "position": 12,
+      "name": "task_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_sessions",
+      "position": 13,
+      "name": "follow_up",
+      "type": "boolean",
+      "udt": "bool",
+      "nullable": false,
+      "default": "false",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_sessions",
+      "position": 14,
+      "name": "error",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_sessions",
+      "position": 15,
+      "name": "ack_ts",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_sessions",
+      "position": 16,
+      "name": "next_attempt_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": "0",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_sessions",
+      "position": 17,
+      "name": "acknowledged",
+      "type": "boolean",
+      "udt": "bool",
+      "nullable": false,
+      "default": "false",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_sessions",
+      "position": 18,
+      "name": "linked",
+      "type": "boolean",
+      "udt": "bool",
+      "nullable": false,
+      "default": "false",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_sessions",
+      "position": 19,
+      "name": "reported",
+      "type": "boolean",
+      "udt": "bool",
+      "nullable": false,
+      "default": "false",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_sessions",
+      "position": 20,
+      "name": "created_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "slack_sessions",
+      "position": 21,
+      "name": "updated_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "sync_edges",
+      "position": 1,
+      "name": "key_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "sync_edges",
+      "position": 2,
+      "name": "from_page",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "sync_edges",
+      "position": 3,
+      "name": "to_page",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "sync_edges",
+      "position": 4,
+      "name": "count",
+      "type": "integer",
+      "udt": "int4",
+      "nullable": false,
+      "default": "0",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "sync_edges",
+      "position": 5,
+      "name": "last_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "sync_keys",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "sync_keys",
+      "position": 2,
+      "name": "secret",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "sync_keys",
+      "position": 3,
+      "name": "canvas_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "sync_keys",
+      "position": 4,
+      "name": "name",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "sync_keys",
+      "position": 5,
+      "name": "created_by",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "sync_keys",
+      "position": 6,
+      "name": "created_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "sync_keys",
+      "position": 7,
+      "name": "last_used_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "sync_links",
+      "position": 1,
+      "name": "key_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "sync_links",
+      "position": 2,
+      "name": "page",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "sync_links",
+      "position": 3,
+      "name": "to_page",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "sync_links",
+      "position": 4,
+      "name": "x",
+      "type": "double precision",
+      "udt": "float8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "sync_links",
+      "position": 5,
+      "name": "y",
+      "type": "double precision",
+      "udt": "float8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "sync_links",
+      "position": 6,
+      "name": "width",
+      "type": "double precision",
+      "udt": "float8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "sync_links",
+      "position": 7,
+      "name": "height",
+      "type": "double precision",
+      "udt": "float8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "sync_links",
+      "position": 8,
+      "name": "label",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "tasks",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "tasks",
+      "position": 2,
+      "name": "canvas_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "tasks",
+      "position": 3,
+      "name": "agent_name",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "tasks",
+      "position": 4,
+      "name": "owner",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "tasks",
+      "position": 5,
+      "name": "color",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "tasks",
+      "position": 6,
+      "name": "status",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "tasks",
+      "position": 7,
+      "name": "started_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "tasks",
+      "position": 8,
+      "name": "ended_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "tasks",
+      "position": 9,
+      "name": "auto",
+      "type": "boolean",
+      "udt": "bool",
+      "nullable": false,
+      "default": "false",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "tasks",
+      "position": 10,
+      "name": "queued_by",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "tasks",
+      "position": 11,
+      "name": "claimed_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "tasks",
+      "position": 12,
+      "name": "failed_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "tasks",
+      "position": 13,
+      "name": "failure_reason",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "tasks",
+      "position": 14,
+      "name": "pipeline",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "tasks",
+      "position": 15,
+      "name": "stage",
+      "type": "integer",
+      "udt": "int4",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "tasks",
+      "position": 16,
+      "name": "attachments",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "tasks",
+      "position": 17,
+      "name": "queued_by_user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "tasks",
+      "position": 18,
+      "name": "kind",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "tasks",
+      "position": 19,
+      "name": "payload",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "tasks",
+      "position": 20,
+      "name": "scope",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "tasks",
+      "position": 21,
+      "name": "frame_ids",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "user",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "user",
+      "position": 2,
+      "name": "name",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "user",
+      "position": 3,
+      "name": "email",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "user",
+      "position": 4,
+      "name": "email_verified",
+      "type": "boolean",
+      "udt": "bool",
+      "nullable": false,
+      "default": "false",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "user",
+      "position": 5,
+      "name": "image",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "user",
+      "position": 6,
+      "name": "created_at",
+      "type": "timestamp without time zone",
+      "udt": "timestamp",
+      "nullable": false,
+      "default": "now()",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "user",
+      "position": 7,
+      "name": "updated_at",
+      "type": "timestamp without time zone",
+      "udt": "timestamp",
+      "nullable": false,
+      "default": "now()",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "user",
+      "position": 8,
+      "name": "role",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "user",
+      "position": 9,
+      "name": "banned",
+      "type": "boolean",
+      "udt": "bool",
+      "nullable": true,
+      "default": "false",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "user",
+      "position": 10,
+      "name": "ban_reason",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "user",
+      "position": 11,
+      "name": "ban_expires",
+      "type": "timestamp without time zone",
+      "udt": "timestamp",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "verification",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "verification",
+      "position": 2,
+      "name": "identifier",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "verification",
+      "position": 3,
+      "name": "value",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "verification",
+      "position": 4,
+      "name": "expires_at",
+      "type": "timestamp without time zone",
+      "udt": "timestamp",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "verification",
+      "position": 5,
+      "name": "created_at",
+      "type": "timestamp without time zone",
+      "udt": "timestamp",
+      "nullable": true,
+      "default": "now()",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "verification",
+      "position": 6,
+      "name": "updated_at",
+      "type": "timestamp without time zone",
+      "udt": "timestamp",
+      "nullable": true,
+      "default": "now()",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "webhooks",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "webhooks",
+      "position": 2,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "webhooks",
+      "position": 3,
+      "name": "url",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "webhooks",
+      "position": 4,
+      "name": "secret",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "webhooks",
+      "position": 5,
+      "name": "events",
+      "type": "jsonb",
+      "udt": "jsonb",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "webhooks",
+      "position": 6,
+      "name": "enabled",
+      "type": "boolean",
+      "udt": "bool",
+      "nullable": false,
+      "default": "true",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "webhooks",
+      "position": 7,
+      "name": "created_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "webhooks",
+      "position": 8,
+      "name": "last_status",
+      "type": "integer",
+      "udt": "int4",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "webhooks",
+      "position": 9,
+      "name": "last_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "webhooks",
+      "position": 10,
+      "name": "last_error",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "webhooks",
+      "position": 11,
+      "name": "failures",
+      "type": "integer",
+      "udt": "int4",
+      "nullable": false,
+      "default": "0",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspace_invites",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspace_invites",
+      "position": 2,
+      "name": "workspace_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspace_invites",
+      "position": 3,
+      "name": "email",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspace_invites",
+      "position": 4,
+      "name": "role",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspace_invites",
+      "position": 5,
+      "name": "invited_by",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspace_invites",
+      "position": 6,
+      "name": "created_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspace_members",
+      "position": 1,
+      "name": "workspace_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspace_members",
+      "position": 2,
+      "name": "user_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspace_members",
+      "position": 3,
+      "name": "role",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspace_members",
+      "position": 4,
+      "name": "added_by",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspace_members",
+      "position": 5,
+      "name": "added_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspaces",
+      "position": 1,
+      "name": "id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspaces",
+      "position": 2,
+      "name": "name",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspaces",
+      "position": 3,
+      "name": "owner_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspaces",
+      "position": 4,
+      "name": "status",
+      "type": "text",
+      "udt": "text",
+      "nullable": false,
+      "default": "'inactive'::text",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspaces",
+      "position": 5,
+      "name": "plan",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspaces",
+      "position": 6,
+      "name": "interval",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspaces",
+      "position": 7,
+      "name": "seats",
+      "type": "integer",
+      "udt": "int4",
+      "nullable": false,
+      "default": "0",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspaces",
+      "position": 8,
+      "name": "stripe_customer_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspaces",
+      "position": 9,
+      "name": "stripe_subscription_id",
+      "type": "text",
+      "udt": "text",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspaces",
+      "position": 10,
+      "name": "current_period_end",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspaces",
+      "position": 11,
+      "name": "cancel_at_period_end",
+      "type": "boolean",
+      "udt": "bool",
+      "nullable": false,
+      "default": "false",
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspaces",
+      "position": 12,
+      "name": "billing_event_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": true,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspaces",
+      "position": 13,
+      "name": "created_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    },
+    {
+      "table": "workspaces",
+      "position": 14,
+      "name": "updated_at",
+      "type": "bigint",
+      "udt": "int8",
+      "nullable": false,
+      "default": null,
+      "identity": false,
+      "identityGeneration": null
+    }
+  ],
+  "constraints": [
+    {
+      "table": "account",
+      "name": "account_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "account",
+      "name": "account_user_id_user_id_fk",
+      "type": "f",
+      "definition": "FOREIGN KEY (user_id) REFERENCES \"user\"(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "activity",
+      "name": "activity_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "agent_keys",
+      "name": "agent_keys_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "asset_refs",
+      "name": "asset_refs_asset_id_frame_id_pk",
+      "type": "p",
+      "definition": "PRIMARY KEY (asset_id, frame_id)"
+    },
+    {
+      "table": "assets",
+      "name": "assets_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "automation_runs",
+      "name": "automation_runs_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "automations",
+      "name": "automations_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "backgrounds",
+      "name": "backgrounds_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "canvas_members",
+      "name": "canvas_members_canvas_id_user_id_pk",
+      "type": "p",
+      "definition": "PRIMARY KEY (canvas_id, user_id)"
+    },
+    {
+      "table": "canvases",
+      "name": "canvases_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "comments",
+      "name": "comments_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "decisions",
+      "name": "decisions_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "feedback",
+      "name": "feedback_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "frame_versions",
+      "name": "frame_versions_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "frames",
+      "name": "frames_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "github_connections",
+      "name": "github_connections_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "guideline_versions",
+      "name": "guideline_versions_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "guidelines",
+      "name": "guidelines_canvas_id_name_pk",
+      "type": "p",
+      "definition": "PRIMARY KEY (canvas_id, name)"
+    },
+    {
+      "table": "image_prefs",
+      "name": "image_prefs_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (user_id)"
+    },
+    {
+      "table": "integrations",
+      "name": "integrations_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "linear_installations",
+      "name": "linear_installations_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (organization_id)"
+    },
+    {
+      "table": "linear_installations",
+      "name": "linear_installations_user_id_key",
+      "type": "u",
+      "definition": "UNIQUE (user_id)"
+    },
+    {
+      "table": "linear_oauth_states",
+      "name": "linear_oauth_states_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (hash)"
+    },
+    {
+      "table": "linear_sessions",
+      "name": "linear_sessions_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "live_activities",
+      "name": "live_activities_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "live_activities",
+      "name": "live_activities_token_unique",
+      "type": "u",
+      "definition": "UNIQUE (token)"
+    },
+    {
+      "table": "live_activity_starters",
+      "name": "live_activity_starters_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (token)"
+    },
+    {
+      "table": "local_agent_preferences",
+      "name": "local_agent_preferences_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (user_id)"
+    },
+    {
+      "table": "memory_proposals",
+      "name": "memory_proposals_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "memory_references",
+      "name": "memory_references_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "model_accounts",
+      "name": "model_accounts_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (user_id)"
+    },
+    {
+      "table": "notification_prefs",
+      "name": "notification_prefs_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (user_id)"
+    },
+    {
+      "table": "oauth_access_token",
+      "name": "oauth_access_token_access_token_unique",
+      "type": "u",
+      "definition": "UNIQUE (access_token)"
+    },
+    {
+      "table": "oauth_access_token",
+      "name": "oauth_access_token_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "oauth_access_token",
+      "name": "oauth_access_token_refresh_token_unique",
+      "type": "u",
+      "definition": "UNIQUE (refresh_token)"
+    },
+    {
+      "table": "oauth_application",
+      "name": "oauth_application_client_id_unique",
+      "type": "u",
+      "definition": "UNIQUE (client_id)"
+    },
+    {
+      "table": "oauth_application",
+      "name": "oauth_application_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "oauth_consent",
+      "name": "oauth_consent_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "resident_usage",
+      "name": "resident_usage_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (user_id)"
+    },
+    {
+      "table": "session",
+      "name": "session_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "session",
+      "name": "session_token_unique",
+      "type": "u",
+      "definition": "UNIQUE (token)"
+    },
+    {
+      "table": "session",
+      "name": "session_user_id_user_id_fk",
+      "type": "f",
+      "definition": "FOREIGN KEY (user_id) REFERENCES \"user\"(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "slack_installations",
+      "name": "slack_installations_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (team_id)"
+    },
+    {
+      "table": "slack_installations",
+      "name": "slack_installations_user_id_unique",
+      "type": "u",
+      "definition": "UNIQUE (user_id)"
+    },
+    {
+      "table": "slack_oauth_states",
+      "name": "slack_oauth_states_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (hash)"
+    },
+    {
+      "table": "slack_sessions",
+      "name": "slack_sessions_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "sync_edges",
+      "name": "sync_edges_key_id_from_page_to_page_pk",
+      "type": "p",
+      "definition": "PRIMARY KEY (key_id, from_page, to_page)"
+    },
+    {
+      "table": "sync_keys",
+      "name": "sync_keys_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "tasks",
+      "name": "tasks_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "user",
+      "name": "user_email_unique",
+      "type": "u",
+      "definition": "UNIQUE (email)"
+    },
+    {
+      "table": "user",
+      "name": "user_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "verification",
+      "name": "verification_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "webhooks",
+      "name": "webhooks_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "workspace_invites",
+      "name": "workspace_invites_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "workspace_members",
+      "name": "workspace_members_workspace_id_user_id_pk",
+      "type": "p",
+      "definition": "PRIMARY KEY (workspace_id, user_id)"
+    },
+    {
+      "table": "workspaces",
+      "name": "workspaces_pkey",
+      "type": "p",
+      "definition": "PRIMARY KEY (id)"
+    }
+  ],
+  "indexes": [
+    {
+      "table": "account",
+      "name": "account_pkey",
+      "definition": "CREATE UNIQUE INDEX account_pkey ON public.account USING btree (id)"
+    },
+    {
+      "table": "activity",
+      "name": "activity_canvas_idx",
+      "definition": "CREATE INDEX activity_canvas_idx ON public.activity USING btree (canvas_id)"
+    },
+    {
+      "table": "activity",
+      "name": "activity_pkey",
+      "definition": "CREATE UNIQUE INDEX activity_pkey ON public.activity USING btree (id)"
+    },
+    {
+      "table": "agent_keys",
+      "name": "agent_keys_hash_idx",
+      "definition": "CREATE UNIQUE INDEX agent_keys_hash_idx ON public.agent_keys USING btree (secret_hash)"
+    },
+    {
+      "table": "agent_keys",
+      "name": "agent_keys_pkey",
+      "definition": "CREATE UNIQUE INDEX agent_keys_pkey ON public.agent_keys USING btree (id)"
+    },
+    {
+      "table": "agent_keys",
+      "name": "agent_keys_user_idx",
+      "definition": "CREATE INDEX agent_keys_user_idx ON public.agent_keys USING btree (user_id)"
+    },
+    {
+      "table": "asset_refs",
+      "name": "asset_refs_asset_id_frame_id_pk",
+      "definition": "CREATE UNIQUE INDEX asset_refs_asset_id_frame_id_pk ON public.asset_refs USING btree (asset_id, frame_id)"
+    },
+    {
+      "table": "asset_refs",
+      "name": "asset_refs_frame_idx",
+      "definition": "CREATE INDEX asset_refs_frame_idx ON public.asset_refs USING btree (frame_id)"
+    },
+    {
+      "table": "assets",
+      "name": "assets_canvas_idx",
+      "definition": "CREATE INDEX assets_canvas_idx ON public.assets USING btree (canvas_id)"
+    },
+    {
+      "table": "assets",
+      "name": "assets_pkey",
+      "definition": "CREATE UNIQUE INDEX assets_pkey ON public.assets USING btree (id)"
+    },
+    {
+      "table": "automation_approvals",
+      "name": "automation_approvals_event_idx",
+      "definition": "CREATE UNIQUE INDEX automation_approvals_event_idx ON public.automation_approvals USING btree (automation_id, frame_id, approved_at)"
+    },
+    {
+      "table": "automation_runs",
+      "name": "automation_runs_automation_idx",
+      "definition": "CREATE INDEX automation_runs_automation_idx ON public.automation_runs USING btree (automation_id)"
+    },
+    {
+      "table": "automation_runs",
+      "name": "automation_runs_pkey",
+      "definition": "CREATE UNIQUE INDEX automation_runs_pkey ON public.automation_runs USING btree (id)"
+    },
+    {
+      "table": "automations",
+      "name": "automations_next_run_idx",
+      "definition": "CREATE INDEX automations_next_run_idx ON public.automations USING btree (next_run_at)"
+    },
+    {
+      "table": "automations",
+      "name": "automations_owner_idx",
+      "definition": "CREATE INDEX automations_owner_idx ON public.automations USING btree (owner_id)"
+    },
+    {
+      "table": "automations",
+      "name": "automations_pkey",
+      "definition": "CREATE UNIQUE INDEX automations_pkey ON public.automations USING btree (id)"
+    },
+    {
+      "table": "backgrounds",
+      "name": "backgrounds_pkey",
+      "definition": "CREATE UNIQUE INDEX backgrounds_pkey ON public.backgrounds USING btree (id)"
+    },
+    {
+      "table": "canvas_members",
+      "name": "canvas_members_canvas_id_user_id_pk",
+      "definition": "CREATE UNIQUE INDEX canvas_members_canvas_id_user_id_pk ON public.canvas_members USING btree (canvas_id, user_id)"
+    },
+    {
+      "table": "canvases",
+      "name": "canvases_pkey",
+      "definition": "CREATE UNIQUE INDEX canvases_pkey ON public.canvases USING btree (id)"
+    },
+    {
+      "table": "comments",
+      "name": "comments_canvas_idx",
+      "definition": "CREATE INDEX comments_canvas_idx ON public.comments USING btree (canvas_id)"
+    },
+    {
+      "table": "comments",
+      "name": "comments_pkey",
+      "definition": "CREATE UNIQUE INDEX comments_pkey ON public.comments USING btree (id)"
+    },
+    {
+      "table": "decisions",
+      "name": "decisions_canvas_idx",
+      "definition": "CREATE INDEX decisions_canvas_idx ON public.decisions USING btree (canvas_id)"
+    },
+    {
+      "table": "decisions",
+      "name": "decisions_pkey",
+      "definition": "CREATE UNIQUE INDEX decisions_pkey ON public.decisions USING btree (id)"
+    },
+    {
+      "table": "feedback",
+      "name": "feedback_canvas_idx",
+      "definition": "CREATE INDEX feedback_canvas_idx ON public.feedback USING btree (canvas_id)"
+    },
+    {
+      "table": "feedback",
+      "name": "feedback_pkey",
+      "definition": "CREATE UNIQUE INDEX feedback_pkey ON public.feedback USING btree (id)"
+    },
+    {
+      "table": "frame_versions",
+      "name": "frame_versions_canvas_idx",
+      "definition": "CREATE INDEX frame_versions_canvas_idx ON public.frame_versions USING btree (canvas_id)"
+    },
+    {
+      "table": "frame_versions",
+      "name": "frame_versions_frame_idx",
+      "definition": "CREATE INDEX frame_versions_frame_idx ON public.frame_versions USING btree (frame_id)"
+    },
+    {
+      "table": "frame_versions",
+      "name": "frame_versions_pkey",
+      "definition": "CREATE UNIQUE INDEX frame_versions_pkey ON public.frame_versions USING btree (id)"
+    },
+    {
+      "table": "frames",
+      "name": "frames_canvas_idx",
+      "definition": "CREATE INDEX frames_canvas_idx ON public.frames USING btree (canvas_id)"
+    },
+    {
+      "table": "frames",
+      "name": "frames_pkey",
+      "definition": "CREATE UNIQUE INDEX frames_pkey ON public.frames USING btree (id)"
+    },
+    {
+      "table": "github_connections",
+      "name": "github_connections_canvas_idx",
+      "definition": "CREATE INDEX github_connections_canvas_idx ON public.github_connections USING btree (canvas_id)"
+    },
+    {
+      "table": "github_connections",
+      "name": "github_connections_pkey",
+      "definition": "CREATE UNIQUE INDEX github_connections_pkey ON public.github_connections USING btree (id)"
+    },
+    {
+      "table": "guideline_versions",
+      "name": "guideline_versions_doc_idx",
+      "definition": "CREATE INDEX guideline_versions_doc_idx ON public.guideline_versions USING btree (canvas_id, name)"
+    },
+    {
+      "table": "guideline_versions",
+      "name": "guideline_versions_pkey",
+      "definition": "CREATE UNIQUE INDEX guideline_versions_pkey ON public.guideline_versions USING btree (id)"
+    },
+    {
+      "table": "guidelines",
+      "name": "guidelines_canvas_id_name_pk",
+      "definition": "CREATE UNIQUE INDEX guidelines_canvas_id_name_pk ON public.guidelines USING btree (canvas_id, name)"
+    },
+    {
+      "table": "image_prefs",
+      "name": "image_prefs_pkey",
+      "definition": "CREATE UNIQUE INDEX image_prefs_pkey ON public.image_prefs USING btree (user_id)"
+    },
+    {
+      "table": "integrations",
+      "name": "integrations_pkey",
+      "definition": "CREATE UNIQUE INDEX integrations_pkey ON public.integrations USING btree (id)"
+    },
+    {
+      "table": "integrations",
+      "name": "integrations_user_provider_idx",
+      "definition": "CREATE UNIQUE INDEX integrations_user_provider_idx ON public.integrations USING btree (user_id, provider)"
+    },
+    {
+      "table": "linear_installations",
+      "name": "linear_installations_pkey",
+      "definition": "CREATE UNIQUE INDEX linear_installations_pkey ON public.linear_installations USING btree (organization_id)"
+    },
+    {
+      "table": "linear_installations",
+      "name": "linear_installations_user_id_key",
+      "definition": "CREATE UNIQUE INDEX linear_installations_user_id_key ON public.linear_installations USING btree (user_id)"
+    },
+    {
+      "table": "linear_oauth_states",
+      "name": "linear_oauth_states_pkey",
+      "definition": "CREATE UNIQUE INDEX linear_oauth_states_pkey ON public.linear_oauth_states USING btree (hash)"
+    },
+    {
+      "table": "linear_sessions",
+      "name": "linear_sessions_pkey",
+      "definition": "CREATE UNIQUE INDEX linear_sessions_pkey ON public.linear_sessions USING btree (id)"
+    },
+    {
+      "table": "linear_sessions",
+      "name": "linear_sessions_status_idx",
+      "definition": "CREATE INDEX linear_sessions_status_idx ON public.linear_sessions USING btree (status)"
+    },
+    {
+      "table": "live_activities",
+      "name": "live_activities_pkey",
+      "definition": "CREATE UNIQUE INDEX live_activities_pkey ON public.live_activities USING btree (id)"
+    },
+    {
+      "table": "live_activities",
+      "name": "live_activities_token_unique",
+      "definition": "CREATE UNIQUE INDEX live_activities_token_unique ON public.live_activities USING btree (token)"
+    },
+    {
+      "table": "live_activity_starters",
+      "name": "live_activity_starters_pkey",
+      "definition": "CREATE UNIQUE INDEX live_activity_starters_pkey ON public.live_activity_starters USING btree (token)"
+    },
+    {
+      "table": "local_agent_preferences",
+      "name": "local_agent_preferences_pkey",
+      "definition": "CREATE UNIQUE INDEX local_agent_preferences_pkey ON public.local_agent_preferences USING btree (user_id)"
+    },
+    {
+      "table": "memory_proposals",
+      "name": "memory_proposals_canvas_idx",
+      "definition": "CREATE INDEX memory_proposals_canvas_idx ON public.memory_proposals USING btree (canvas_id)"
+    },
+    {
+      "table": "memory_proposals",
+      "name": "memory_proposals_pkey",
+      "definition": "CREATE UNIQUE INDEX memory_proposals_pkey ON public.memory_proposals USING btree (id)"
+    },
+    {
+      "table": "memory_references",
+      "name": "memory_references_canvas_idx",
+      "definition": "CREATE INDEX memory_references_canvas_idx ON public.memory_references USING btree (canvas_id)"
+    },
+    {
+      "table": "memory_references",
+      "name": "memory_references_pkey",
+      "definition": "CREATE UNIQUE INDEX memory_references_pkey ON public.memory_references USING btree (id)"
+    },
+    {
+      "table": "model_accounts",
+      "name": "model_accounts_pkey",
+      "definition": "CREATE UNIQUE INDEX model_accounts_pkey ON public.model_accounts USING btree (user_id)"
+    },
+    {
+      "table": "notification_prefs",
+      "name": "notification_prefs_pkey",
+      "definition": "CREATE UNIQUE INDEX notification_prefs_pkey ON public.notification_prefs USING btree (user_id)"
+    },
+    {
+      "table": "oauth_access_token",
+      "name": "oauth_access_token_access_token_unique",
+      "definition": "CREATE UNIQUE INDEX oauth_access_token_access_token_unique ON public.oauth_access_token USING btree (access_token)"
+    },
+    {
+      "table": "oauth_access_token",
+      "name": "oauth_access_token_pkey",
+      "definition": "CREATE UNIQUE INDEX oauth_access_token_pkey ON public.oauth_access_token USING btree (id)"
+    },
+    {
+      "table": "oauth_access_token",
+      "name": "oauth_access_token_refresh_token_unique",
+      "definition": "CREATE UNIQUE INDEX oauth_access_token_refresh_token_unique ON public.oauth_access_token USING btree (refresh_token)"
+    },
+    {
+      "table": "oauth_application",
+      "name": "oauth_application_client_id_unique",
+      "definition": "CREATE UNIQUE INDEX oauth_application_client_id_unique ON public.oauth_application USING btree (client_id)"
+    },
+    {
+      "table": "oauth_application",
+      "name": "oauth_application_pkey",
+      "definition": "CREATE UNIQUE INDEX oauth_application_pkey ON public.oauth_application USING btree (id)"
+    },
+    {
+      "table": "oauth_consent",
+      "name": "oauth_consent_pkey",
+      "definition": "CREATE UNIQUE INDEX oauth_consent_pkey ON public.oauth_consent USING btree (id)"
+    },
+    {
+      "table": "resident_usage",
+      "name": "resident_usage_pkey",
+      "definition": "CREATE UNIQUE INDEX resident_usage_pkey ON public.resident_usage USING btree (user_id)"
+    },
+    {
+      "table": "session",
+      "name": "session_pkey",
+      "definition": "CREATE UNIQUE INDEX session_pkey ON public.session USING btree (id)"
+    },
+    {
+      "table": "session",
+      "name": "session_token_unique",
+      "definition": "CREATE UNIQUE INDEX session_token_unique ON public.session USING btree (token)"
+    },
+    {
+      "table": "slack_installations",
+      "name": "slack_installations_pkey",
+      "definition": "CREATE UNIQUE INDEX slack_installations_pkey ON public.slack_installations USING btree (team_id)"
+    },
+    {
+      "table": "slack_installations",
+      "name": "slack_installations_user_id_unique",
+      "definition": "CREATE UNIQUE INDEX slack_installations_user_id_unique ON public.slack_installations USING btree (user_id)"
+    },
+    {
+      "table": "slack_oauth_states",
+      "name": "slack_oauth_states_pkey",
+      "definition": "CREATE UNIQUE INDEX slack_oauth_states_pkey ON public.slack_oauth_states USING btree (hash)"
+    },
+    {
+      "table": "slack_sessions",
+      "name": "slack_sessions_pkey",
+      "definition": "CREATE UNIQUE INDEX slack_sessions_pkey ON public.slack_sessions USING btree (id)"
+    },
+    {
+      "table": "slack_sessions",
+      "name": "slack_sessions_status_idx",
+      "definition": "CREATE INDEX slack_sessions_status_idx ON public.slack_sessions USING btree (status)"
+    },
+    {
+      "table": "slack_sessions",
+      "name": "slack_sessions_thread_idx",
+      "definition": "CREATE INDEX slack_sessions_thread_idx ON public.slack_sessions USING btree (team_id, channel_id, thread_ts)"
+    },
+    {
+      "table": "sync_edges",
+      "name": "sync_edges_key_id_from_page_to_page_pk",
+      "definition": "CREATE UNIQUE INDEX sync_edges_key_id_from_page_to_page_pk ON public.sync_edges USING btree (key_id, from_page, to_page)"
+    },
+    {
+      "table": "sync_keys",
+      "name": "sync_keys_canvas_idx",
+      "definition": "CREATE INDEX sync_keys_canvas_idx ON public.sync_keys USING btree (canvas_id)"
+    },
+    {
+      "table": "sync_keys",
+      "name": "sync_keys_pkey",
+      "definition": "CREATE UNIQUE INDEX sync_keys_pkey ON public.sync_keys USING btree (id)"
+    },
+    {
+      "table": "sync_keys",
+      "name": "sync_keys_secret_idx",
+      "definition": "CREATE INDEX sync_keys_secret_idx ON public.sync_keys USING btree (secret)"
+    },
+    {
+      "table": "sync_links",
+      "name": "sync_links_page_idx",
+      "definition": "CREATE INDEX sync_links_page_idx ON public.sync_links USING btree (key_id, page)"
+    },
+    {
+      "table": "tasks",
+      "name": "tasks_canvas_idx",
+      "definition": "CREATE INDEX tasks_canvas_idx ON public.tasks USING btree (canvas_id)"
+    },
+    {
+      "table": "tasks",
+      "name": "tasks_pkey",
+      "definition": "CREATE UNIQUE INDEX tasks_pkey ON public.tasks USING btree (id)"
+    },
+    {
+      "table": "user",
+      "name": "user_email_unique",
+      "definition": "CREATE UNIQUE INDEX user_email_unique ON public.\"user\" USING btree (email)"
+    },
+    {
+      "table": "user",
+      "name": "user_pkey",
+      "definition": "CREATE UNIQUE INDEX user_pkey ON public.\"user\" USING btree (id)"
+    },
+    {
+      "table": "verification",
+      "name": "verification_pkey",
+      "definition": "CREATE UNIQUE INDEX verification_pkey ON public.verification USING btree (id)"
+    },
+    {
+      "table": "webhooks",
+      "name": "webhooks_pkey",
+      "definition": "CREATE UNIQUE INDEX webhooks_pkey ON public.webhooks USING btree (id)"
+    },
+    {
+      "table": "webhooks",
+      "name": "webhooks_user_idx",
+      "definition": "CREATE INDEX webhooks_user_idx ON public.webhooks USING btree (user_id)"
+    },
+    {
+      "table": "workspace_invites",
+      "name": "workspace_invites_email_idx",
+      "definition": "CREATE INDEX workspace_invites_email_idx ON public.workspace_invites USING btree (email)"
+    },
+    {
+      "table": "workspace_invites",
+      "name": "workspace_invites_pkey",
+      "definition": "CREATE UNIQUE INDEX workspace_invites_pkey ON public.workspace_invites USING btree (id)"
+    },
+    {
+      "table": "workspace_invites",
+      "name": "workspace_invites_workspace_email_idx",
+      "definition": "CREATE UNIQUE INDEX workspace_invites_workspace_email_idx ON public.workspace_invites USING btree (workspace_id, email)"
+    },
+    {
+      "table": "workspace_members",
+      "name": "workspace_members_user_idx",
+      "definition": "CREATE INDEX workspace_members_user_idx ON public.workspace_members USING btree (user_id)"
+    },
+    {
+      "table": "workspace_members",
+      "name": "workspace_members_workspace_id_user_id_pk",
+      "definition": "CREATE UNIQUE INDEX workspace_members_workspace_id_user_id_pk ON public.workspace_members USING btree (workspace_id, user_id)"
+    },
+    {
+      "table": "workspaces",
+      "name": "workspaces_pkey",
+      "definition": "CREATE UNIQUE INDEX workspaces_pkey ON public.workspaces USING btree (id)"
+    }
+  ],
+  "enums": []
+}

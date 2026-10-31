@@ -1,0 +1,330 @@
+/* Bopixi in the desktop shell (desktop/src-tauri). The shell is one webview
+   with an overlay title bar; canvases open Figma-style in a tab strip the
+   web app draws itself (src/components/DesktopTabs.tsx). Tabs are ordinary
+   in-page navigations — this module only keeps the strip's state and the
+   shell-specific plumbing. In a plain browser every entry point returns
+   false / no-ops and the app behaves exactly as before. */
+
+import { create } from 'zustand'
+import { navigate } from '../App'
+import { authClient } from './auth'
+import {
+  type DesktopSignInProvider,
+  type ProviderRedirects,
+  desktopSignInURL,
+  forgetPendingSignIn,
+  isPendingSignIn,
+  newChallenge,
+  parseDesktopAuthDeepLink,
+  rememberPendingSignIn,
+} from './desktopAuth'
+import { isDesktopShell } from './shell'
+import { codexSetupTarget } from './codexConnection'
+import { forgetPendingConnect, isPendingConnect, parseDesktopConnectLink } from './desktopConnect'
+import { safeRelativeTarget } from './safeTarget'
+import { NO_CANVAS, isViewCommand, runViewCommand, syncViewMenu } from './viewMenu'
+
+export type CanvasTab = { id: string; name: string }
+
+type ShellWindow = Window & {
+  __TAURI__?: {
+    opener?: { openUrl?: (url: string) => Promise<void> }
+    event?: { listen?: <T>(name: string, handler: (event: { payload: T }) => void) => Promise<() => void> }
+    deepLink?: { getCurrent?: () => Promise<string[] | null> }
+    window?: { getCurrentWindow?: () => { close: () => Promise<void> } }
+  }
+}
+
+const shellWindow = window as ShellWindow
+
+/* ---------- tab strip state ---------- */
+
+/* Tabs persist per account (`bopixi-open-tabs:<userId>`): on a shared machine
+   the next person to sign in must not see the previous account's canvas
+   names, and each account gets its own tabs back — like Figma. Until the
+   session resolves, tabs live only in memory. */
+
+let userId: string | null = null
+
+function storageKey(id: string) {
+  return `bopixi-open-tabs:${id}`
+}
+
+function load(id: string): CanvasTab[] {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(storageKey(id)) ?? '[]')
+    return Array.isArray(parsed) ? parsed.filter((t): t is CanvasTab => typeof t?.id === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+export const useTabs = create<{ tabs: CanvasTab[] }>(() => ({ tabs: [] }))
+
+function setTabs(tabs: CanvasTab[]) {
+  useTabs.setState({ tabs })
+  if (!userId) return
+  try {
+    localStorage.setItem(storageKey(userId), JSON.stringify(tabs))
+  } catch {
+    /* blocked storage only means tabs don't survive a relaunch */
+  }
+}
+
+/** Called by App whenever the session's user changes (including to null on
+ *  sign-out). Restores that account's tabs, keeping any opened before the
+ *  session resolved — a deep link's tab must survive the swap. */
+export function setTabsUser(id: string | null) {
+  if (!isDesktopShell() || id === userId) return
+  userId = id
+  if (!id) {
+    useTabs.setState({ tabs: [] })
+    return
+  }
+  const restored = load(id)
+  const current = useTabs.getState().tabs
+  setTabs([...restored, ...current.filter((t) => !restored.some((r) => r.id === t.id))])
+}
+
+/** Make sure a tab exists for the canvas and its label is current. Called on
+ *  every canvas visit, so deep links and back/forward grow tabs too and
+ *  renames flow into the strip. */
+export function ensureTab(id: string, name?: string) {
+  if (!isDesktopShell()) return
+  const { tabs } = useTabs.getState()
+  const tab = tabs.find((t) => t.id === id)
+  if (!tab) setTabs([...tabs, { id, name: name || 'Untitled canvas' }])
+  else if (name && tab.name !== name) setTabs(tabs.map((t) => (t.id === id ? { ...t, name } : t)))
+}
+
+/** Open (or switch to) the tab for a canvas. False in plain browsers so
+ *  callers fall back to a bare navigation. */
+export function openCanvasTab(id: string, name?: string): boolean {
+  if (!isDesktopShell()) return false
+  ensureTab(id, name)
+  navigate(`/c/${id}`)
+  return true
+}
+
+/** Drop tabs whose canvases no longer exist. Home feeds this every fresh
+ *  canvas list — deletes can happen in other sessions or by other people,
+ *  so closing tabs at the delete button alone would still leave strays. */
+export function pruneTabs(liveIds: ReadonlySet<string>) {
+  const { tabs } = useTabs.getState()
+  const next = tabs.filter((t) => liveIds.has(t.id))
+  if (next.length !== tabs.length) setTabs(next)
+}
+
+export function closeTab(id: string, currentPath: string) {
+  const { tabs } = useTabs.getState()
+  const at = tabs.findIndex((t) => t.id === id)
+  if (at < 0) return
+  const next = tabs.filter((t) => t.id !== id)
+  setTabs(next)
+  /* closing the tab you're on lands you on its right neighbour, like Chrome */
+  if (currentPath === `/c/${id}`) {
+    const neighbour = next[Math.min(at, next.length - 1)]
+    navigate(neighbour ? `/c/${neighbour.id}` : '/')
+  }
+}
+
+/** Close every tab except one — the kept tab becomes the current page.
+ *  Takes the current path like closeTab, so keeping the tab you're on adds
+ *  no history entry (Back would otherwise land on the same canvas). */
+export function closeOtherTabs(id: string, currentPath: string) {
+  const keep = useTabs.getState().tabs.find((t) => t.id === id)
+  if (!keep) return
+  setTabs([keep])
+  if (currentPath !== `/c/${id}`) navigate(`/c/${id}`)
+}
+
+export function closeAllTabs() {
+  setTabs([])
+  navigate('/')
+}
+
+/** Cmd/Ctrl+W. On a canvas it closes that tab. Anywhere else (Home,
+ *  Settings) there is no tab to close, so the window closes as it would in a
+ *  browser whose last tab is closed — which is what the shell did for every
+ *  Cmd+W before its menu said "Close Tab". */
+export function closeActiveTab() {
+  const path = location.pathname
+  const id = path.match(/^\/c\/([^/]+)/)?.[1]
+  if (id) {
+    closeTab(id, path)
+    return
+  }
+  shellWindow.__TAURI__?.window?.getCurrentWindow?.().close().catch(console.error)
+}
+
+/* ---------- sign-in handoff from the system browser ---------- */
+
+/** Whether this shell can receive a bopixi:// link: shells from 0.2.1 register
+ *  the scheme and inject the deep-link plugin's API. Older shells have no
+ *  way to get the session back, so the sign-in form keeps its in-webview
+ *  attempt there. Detected by the API rather than the version so a local
+ *  build tests the same code path as a release. */
+export function supportsBrowserSignIn(): boolean {
+  return receivesDesktopLinks()
+}
+
+/** Whether this shell delivers bopixi:// links to the page (from 0.2.1): the
+ *  way back for anything the system browser finishes on the app's behalf. */
+export function receivesDesktopLinks(): boolean {
+  return typeof shellWindow.__TAURI__?.deepLink?.getCurrent === 'function'
+}
+
+/** Step 1 of the desktop sign-in (src/lib/desktopAuth.ts): remember a
+ *  fresh challenge as the pending sign-in and send the system browser to
+ *  the page that starts the provider round trip. False if the browser
+ *  could not be opened — the caller shows its start-failure message. */
+export async function beginBrowserSignIn(
+  provider: DesktopSignInProvider,
+  redirects: ProviderRedirects,
+): Promise<boolean> {
+  const open = shellWindow.__TAURI__?.opener?.openUrl
+  if (typeof open !== 'function') return false
+  const challenge = newChallenge()
+  if (!rememberPendingSignIn(challenge)) return false
+  try {
+    await open(desktopSignInURL(location.origin, { provider, challenge, ...redirects }))
+    return true
+  } catch (err) {
+    console.error(err)
+    forgetPendingSignIn()
+    return false
+  }
+}
+
+/** Step 3: the deep-link plugin delivered bopixi:// URLs. Redeem the one that
+ *  answers this app's pending sign-in — the server responds with the session
+ *  cookie — and reload onto the target so every session-aware piece of the
+ *  app starts from the cookie. Links answering nothing pending are ignored:
+ *  an unsolicited link from someone else's browser session, or the launch
+ *  URL the plugin replays after the reload that follows a redeem. */
+async function completeBrowserSignIn(urls: readonly string[]) {
+  const link = urls.map(parseDesktopAuthDeepLink).find((l) => l !== null && isPendingSignIn(l.challenge))
+  if (!link) return
+  /* the pending record outlives a verify that never got an answer (the
+     request threw: offline, server restarting) so the person can click
+     "Open bopixi" in the browser again; it is cleared once the server has
+     ruled on the token, before the reload that follows either ruling */
+  const res = await authClient.oneTimeToken.verify({ token: link.token })
+  forgetPendingSignIn()
+  if (res.error) {
+    /* expired or already used: the sign-in form explains and offers a retry */
+    location.assign('/auth?error=desktop_handoff')
+    return
+  }
+  location.assign(link.to)
+}
+
+/* ---------- integration connect handoff from the system browser ---------- */
+
+/** Providers whose completion request is on its way; cleared only by the
+ *  reload that follows an answer, or by a request that never got one. */
+const connectsInFlight = new Set<string>()
+
+/** The browser relayed a provider's redirect (shared/desktopConnect.ts,
+ *  step 3). Finish it under this app's session and reload onto the outcome,
+ *  so the Integrations page reads the fresh status and shows the notice.
+ *  Links answering no pending connection are ignored. If the request never
+ *  got an answer (offline, server restarting) the pending record stays, so
+ *  "Open bopixi" in the browser can deliver the link again. */
+async function completeDesktopConnect(urls: readonly string[]) {
+  const link = urls
+    .map(parseDesktopConnectLink)
+    .find((l) => l !== null && isPendingConnect(l.provider) && !connectsInFlight.has(l.provider))
+  if (!link) return
+  /* a second "Open bopixi" during a slow exchange must not spend the
+     single-use state twice and replace the success with an error */
+  connectsInFlight.add(link.provider)
+  let response: Response
+  try {
+    response = await fetch(`/api/integrations/${link.provider}/complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: link.query }),
+    })
+  } catch (err) {
+    console.error(err)
+    connectsInFlight.delete(link.provider)
+    return
+  }
+  forgetPendingConnect(link.provider)
+  const answer: unknown = response.ok ? await response.json().catch(() => null) : null
+  const to = safeRelativeTarget((answer as { to?: string } | null)?.to)
+  location.assign(
+    to ?? `/integrations?${link.provider}Error=${encodeURIComponent('Could not finish connecting. Try again.')}`,
+  )
+}
+
+async function handleDesktopLinks(urls: readonly string[]) {
+  const setup = urls.map(codexSetupTarget).find((target) => target !== null)
+  if (setup) navigate(setup)
+  await completeBrowserSignIn(urls)
+  await completeDesktopConnect(urls)
+}
+
+function listenForDesktopLinks() {
+  const tauri = shellWindow.__TAURI__
+  tauri?.event
+    ?.listen?.<string[]>('deep-link://new-url', (e) => void handleDesktopLinks(e.payload).catch(console.error))
+    .catch(console.error)
+  /* the link that launched the app: the person quit bopixi while the browser
+     was still busy, and the callback relaunched it */
+  tauri?.deepLink
+    ?.getCurrent?.()
+    .then((urls) => (urls ? handleDesktopLinks(urls) : undefined))
+    .catch(console.error)
+}
+
+/* ---------- external links ---------- */
+
+/** Hand a URL to the system browser via the shell's opener IPC. False on
+ *  pre-0.1.2 shells (no IPC) and in plain browsers. */
+export function openExternal(url: string): boolean {
+  const open = shellWindow.__TAURI__?.opener?.openUrl
+  if (typeof open !== 'function') return false
+  open(url).catch(console.error)
+  return true
+}
+
+/** WKWebView silently drops target="_blank" clicks (no popup handler), so
+ *  links like Help & docs did nothing in the shell. Route them to the system
+ *  browser instead. Runs once from main.tsx; no-op outside the shell. */
+export function initDesktopShell() {
+  if (!isDesktopShell()) return
+  /* Cmd+W: on macOS the shell's menu owns the shortcut (main.rs) and relays
+     it as an event — the page never sees the keystroke. Windows has no menu
+     bar, so Ctrl+W arrives as a plain keydown. Both close the active tab. */
+  shellWindow.__TAURI__?.event?.listen?.('close-tab', closeActiveTab).catch(console.error)
+  /* the macOS View menu (view_menu.rs): a reload leaves it showing the last
+     canvas until a canvas reports in again, so start it out closed */
+  syncViewMenu(NO_CANVAS)
+  shellWindow.__TAURI__?.event
+    ?.listen?.<unknown>('view-command', (e) => {
+      if (isViewCommand(e.payload)) runViewCommand(e.payload)
+    })
+    .catch(console.error)
+  listenForDesktopLinks()
+  document.addEventListener('keydown', (e) => {
+    if (e.key.toLowerCase() !== 'w' || !(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return
+    e.preventDefault()
+    closeActiveTab()
+  })
+  document.addEventListener(
+    'click',
+    (e) => {
+      const a = (e.target as Element | null)?.closest?.('a[target="_blank"]') as HTMLAnchorElement | null
+      if (!a?.href || !/^https?:/i.test(a.href)) return
+      e.preventDefault()
+      if (openExternal(a.href)) return
+      /* pre-0.1.2 shells have no opener IPC: cross-origin assigns still
+         bounce to the system browser via the shell's navigation handler;
+         same-origin ones would swallow the app, so they stay inert there */
+      if (new URL(a.href).host !== location.host) location.assign(a.href)
+    },
+    true,
+  )
+}

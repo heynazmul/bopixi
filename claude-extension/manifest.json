@@ -1,0 +1,43 @@
+{
+  "manifest_version": "0.3",
+  "name": "bopixi",
+  "display_name": "Bopixi",
+  "version": "0.1.0",
+  "description": "Design with Claude on a shared canvas. Create, edit and review designs together in real time.",
+  "author": { "name": "Bopixi", "url": "https://doop.design" },
+  "homepage": "https://doop.design",
+  "license": "AGPL-3.0-only",
+  "icon": "icon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "node_modules/mcp-remote/dist/proxy.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/node_modules/mcp-remote/dist/proxy.js",
+        "${user_config.server_url}",
+        "--transport",
+        "http-only",
+        "--auth-timeout",
+        "300",
+        "--static-oauth-client-metadata",
+        "{\"client_name\":\"Bopixi for Claude Desktop\",\"client_uri\":\"https://doop.design\"}"
+      ]
+    }
+  },
+  "user_config": {
+    "server_url": {
+      "type": "string",
+      "title": "Bopixi server URL",
+      "description": "Keep this for the hosted app. For self-hosting, use your server's URL followed by /mcp. HTTPS is required except on localhost.",
+      "default": "https://doop.design/mcp",
+      "required": true
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32"],
+    "runtimes": { "node": ">=20.18.1" }
+  },
+  "tools_generated": true,
+  "keywords": ["design", "canvas", "html", "css", "multiplayer"]
+}
